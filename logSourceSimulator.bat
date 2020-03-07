@@ -1,0 +1,1 @@
+groovy logSourceSimulator.groovy testConfigurations\\tool.properties
