@@ -1,6 +1,7 @@
 import java.util.StringTokenizer;
 import java.time.format.DateTimeFormatter;  
 import java.time.LocalDateTime;    
+import java.xml.*;
 
 // this utility will either delete the nominated node from the API management logical OR
 // approve a pending gateway join. The behaviour is dictated by the parameters
@@ -14,20 +15,29 @@ final static String YPROPVAL = "y";
 final static String YESPROPVAL = "yes";
 final static String TPROPVAL = "t";
 final static String TRUEPROPVAL = "true";
+final static String LOOP = "REPEAT";
 final static String SOURCESEPARATOR= "SOURCE-SEPARATOR";
 final static String TARGETSEPARATOR= "TARGET-SEPARATOR";
 final static String SOURCEFORMAT = "SOURCEFORMAT";
 final static String TARGETFORMAT = "TARGETFORMAT";
 final static String SOURCEFILE = "SOURCE";
-final static String TARGETFILE = "TARGET";
+final static String TARGETFILE = "TARGETFILE";
 final static String TARGETDTG = "TARGETDTG";
+final static String TARGETURL = "TARGETURL";
 final static String SOURCEDTG = "SOURCEDTG";
 final static String OUTTYPE = "OUTPUTTYPE";
 final static String CONSOLE = "console";
+final static int UNKNOWNOUTPUT = -1;
+final static int CONSOLEOUTPUT = 0;
 final static String HTTP = "HTTP";
+final static int HTTPOUTPUT = 1;
 final static String FILE = "file";
+final static int FILEOUTPUT = 2;
+
 final static String DEFAULTLOC= "DEFAULT-LOCATION";
 final static String DEFAULTPROC= "DEFAULT-PROCESS";
+final static String VERBOSE= "VERBOSE";
+
 
 final static String TIME = "%t";
 final static String LOGLEVEL = "%l";
@@ -37,7 +47,7 @@ final static String PROCESS = "%p";
 
 final static String PROPFILENAMEDEFAULT = "tool.properties";
 
-private boolean debugAll = false; // allows us to pretty print all the API calls if necessary
+private boolean verbose = false; // allows us to pretty print all the API calls if necessary
 
 class LogSimulatorException extends Exception
 {
@@ -61,14 +71,41 @@ static class LogEntry
     }
 }
 
-static String logToString (LogEntry log, String dtgFormat, String separator, String outTemplate)
+
+static int getOutputType (Properties props, boolean verbose)
+{
+        int outType = UNKNOWNOUTPUT;
+        if ((props.get(OUTTYPE)  != null) && (props.get(OUTTYPE).length() > 0))
+        {
+            if (props.get(OUTTYPE).equalsIgnoreCase(FILE))
+            {
+                outType = FILEOUTPUT;
+            }
+            else if (props.get(OUTTYPE).equalsIgnoreCase(CONSOLE))
+            {
+                outType = CONSOLEOUTPUT;
+            }
+            else if (props.get(OUTTYPE).equalsIgnoreCase(HTTP))
+            {
+                outType = HTTPOUTPUT;
+            }    
+            else
+            {
+                if (verbose){System.out.println ("Unknown output type :" + props.get(OUTTYPE));}
+            }        
+        }   
+
+        return outType;
+}
+
+static String logToString (LogEntry log, String dtgFormat, String separator, String outTemplate, boolean verbose)
 {
 
             String output = null;
 
             if (outTemplate != null)
             {
-                 output = outTemplate.clone();
+                 output = new String(outTemplate);
             }
             else
             {
@@ -79,35 +116,63 @@ static String logToString (LogEntry log, String dtgFormat, String separator, Str
             {
                 DateTimeFormatter dtf = DateTimeFormatter.ofPattern(dtgFormat);  
                 LocalDateTime now = LocalDateTime.now();
-                println (TIME + "   " + now.format(dtf));
+                if (verbose) {System.out.println (TIME + "   " + now.format(dtf));}
                 output = output.replace(TIME, now.format(dtf));
             }
 
             if (output.indexOf (LOGLEVEL) > -1)
             {
-                output = output.replace(LOGLEVEL, log.logLevel);
+                if (log.logLevel != null)
+                {
+                    output = output.replace(LOGLEVEL, log.logLevel);
+                }
+                else
+                {
+                    output = output.replace(LOGLEVEL, "");
+                }
             }
 
             if (output.indexOf (PROCESS) > -1)
             {
-                output = output.replace(PROCESS, log.process);
+                if (log.process != null)
+                {
+                    output = output.replace(PROCESS, log.process);
+                }
+                else
+                {
+                    output = output.replace(PROCESS, "");
+                }
             }            
 
             if (output.indexOf (LOCATION) > -1)
             {
-                output = output.replace(LOCATION, log.location);
+                if (log.location != null)
+                {
+                    output = output.replace(LOCATION, log.location);
+                }
+                else
+                {
+                    output = output.replace(LOCATION, "");
+                }
             }  
 
             if (output.indexOf (MESSAGE) > -1)
             {
-                output = output.replace(MESSAGE, log.message);
+                if (log.message != null)
+                {
+                    output = output.replace(MESSAGE, log.message);
+                }
+                else
+                {
+                    output = output.replace(MESSAGE, "");
+                }
             }
 
             return output;
 }
 
 
-static ArrayList<LogEntry> loadLogs (String source, String separator, String format)
+static ArrayList<LogEntry> loadLogs (String source, String separator, String format, boolean verbose)
 {
     BufferedReader sourceReader = new BufferedReader(new FileReader(source));  //creates a buffering character input stream  
     ArrayList<LogEntry> lines = new ArrayList<LogEntry> ();
@@ -176,7 +241,7 @@ static ArrayList<LogEntry> loadLogs (String source, String separator, String for
                 }                   
                 else
                 {
-                    System.out.println ("Unrecognized formatter code : " + formatArray[fmtIdx]);
+                    if (verbose) {System.out.println ("Unrecognized formatter code : " + formatArray[fmtIdx]);}
                 }       
                 fmtIdx++;       
             }
@@ -184,7 +249,7 @@ static ArrayList<LogEntry> loadLogs (String source, String separator, String for
         }
 
         lines.add(logEntry);
-        System.out.println (logEntry.toString());
+        if (verbose){System.out.println (logEntry.toString());}
         line = sourceReader.readLine();
 
     }
@@ -194,6 +259,7 @@ static ArrayList<LogEntry> loadLogs (String source, String separator, String for
 
 public void main (String[] args)
 {
+    System.out.println ("Starting ...");
 
     String propFilename = PROPFILENAMEDEFAULT;
     Properties props = new Properties();
@@ -205,20 +271,21 @@ public void main (String[] args)
         {
             System.out.println("Parameters needed are:\n" + HELPMSG);
         }
-
-        if (args.size() > 0)
+        else 
         {
             propFilename = args[0];
+            println ("Going to use " + propFilename);
         }
     }
     else
     {
-        System.out.println("going to use default properties file");
+        println("going to use default properties file");
     }
-
 
     try
     {
+        println ("handling properties file - " + propFilename);
+
         File propFile = new File(propFilename);
         props.load(propFile.newDataInputStream());
 
@@ -248,21 +315,31 @@ public void main (String[] args)
     // verify all the parameters
     try
     {
-        assert ((props.get(TARGETFILE) != null) && (props.get(TARGETFILE).size() > 0)): "SOURCE not defined";
+        // assert ((props.get(TARGETFILE) != null) && (props.get(TARGETFILE).size() > 0)): "SOURCE not defined";
         assert ((props.get(SOURCEFILE) != null) && (props.get(SOURCEFILE).size() > 0)): "TARGET not defined";
         assert ((props.get(SOURCEFORMAT) != null) && (props.get(SOURCEFORMAT).size() > 0)): "No formatting for output defined";
 
     }
     catch (AssertionError err)
     {
-        if (debugAll)
-        {
-            System.out.println(err.getMessage());
-            System.out.println(HELPMSG);
 
-        }
+        System.out.println(err.getMessage());
+        System.out.println(HELPMSG);
+
         System.exit(-1);
     }
+
+    if ((props.get(VERBOSE) != null) && (props.get(VERBOSE).equalsIgnoreCase("true")))
+    {
+        verbose=true;
+        System.out.println ("In verbose mode");
+    }
+    else
+    {
+        verbose = false;
+    }
+
+
 
     if ((props.get(DEFAULTLOC) != null) && (props.get(DEFAULTLOC).length() > 0))
     {
@@ -274,7 +351,7 @@ public void main (String[] args)
     }    
 
 
-    ArrayList<LogEntry> logs = loadLogs (props.get(SOURCEFILE), props.get (SOURCESEPARATOR), props.get (SOURCEFORMAT));
+    ArrayList<LogEntry> logs = loadLogs (props.get(SOURCEFILE), props.get (SOURCESEPARATOR), props.get (SOURCEFORMAT), verbose);
     LogEntry log = null;
     String dtgFormat = "HH:mm:ss";
     if ((props.get(TARGETDTG) != null) && (props.get(TARGETDTG).length() > 0))
@@ -282,29 +359,28 @@ public void main (String[] args)
         dtgFormat = props.get(TARGETDTG);
     }
 
-    while (true)
+    int loopTotal = 1;
+    int loopCount = 0;
+    if (props.get(LOOP) != null)
     {
+        try{
+        loopTotal = Integer.parseInt(props.get(LOOP));
+        }
+        catch (NumberFormatException err)
+        {
+            System.out.println ("Couldn't process loop counter >" + props.get(LOOP)+"<");
+        }
+    }
+
+    while (loopCount < loopTotal)
+    {
+        loopCount++;
+        if (verbose) {System.out.println ("Performing data set pass " + loopCount + " of " + loopTotal);}
+
         Iterator iter = logs.iterator();
         String separator = props.get (TARGETSEPARATOR);
 
-        int outType = 0;
-        if ((props.get(OUTTYPE)  != null) && (props.get(OUTTYPE).length() > 0))
-        {
-            if (props.get(OUTTYPE).equalsIgnoreCase(FILE))
-            {
-                outType = 1;
-            }
-            else if (props.get(OUTTYPE).equalsIgnoreCase(CONSOLE))
-            {
-                outType = 0;
-            }
-            else if (props.get(OUTTYPE).equalsIgnoreCase(HTTP))
-            {
-                outType = 2;
-            }            
-        }
-        BufferedWriter writer = null;
-
+        BufferedWriter bufferedWriter = null;
 
         while (iter.hasNext())
         {
@@ -312,28 +388,44 @@ public void main (String[] args)
             LocalDateTime now = LocalDateTime.now();
 
             log = (LogEntry) iter.next();
-            String output =  logToString(log, dtgFormat, separator,  props.get(TARGETFORMAT));
+            String output =  logToString(log, dtgFormat, separator,  props.get(TARGETFORMAT),  verbose);
 
-            switch(outType) 
+            switch(getOutputType(props, verbose)) 
             {
-                case 0: // console
-                    System.out.println (output);
+                case CONSOLEOUTPUT:
+                    if (verbose) {System.out.println ("Console:" + output);}
                 break
 
-                case 1: // file
-                    if (writer == null)
+                case FILEOUTPUT: 
+                    if (bufferedWriter == null)
                     {
-                        writer = new BufferedWriter(new FileWriter(props.get(TARGETFILE), true));
+                        bufferedWriter = new BufferedWriter(new FileWriter(props.get(TARGETFILE), true));
                     }
-                    writer.write(output+"\n");
-                    writer.flush();
+                    bufferedWriter.write(output+"\n");
+                    bufferedWriter.flush();
                 break
 
-                case 2: // HTTP
-                    System.out.println (output);
+                case HTTPOUTPUT:
+                    if (verbose) {System.out.println ("HTTP:" + output);}
+
+                    URL baseUrl = new URL(props.get(TARGETURL));
+                    URLConnection webConnection = baseUrl.openConnection();
+                    webConnection.doOutput = true;
+                    webConnection.requestMethod = 'POST';
+                    webConnection.setRequestProperty("content-type", "application/json");
+
+                    webConnection.with {
+                        outputStream.withWriter { writer ->  writer << output }
+                        outputStream.flush();
+                    }
+                    String response= webConnection.getContent();
+
                 break
+
+                default:
+                    if (verbose) {System.out.println (outType);}
+
             }
-            //System.out.println ("debug:" + output);
 
             if (log != null)
             {
@@ -343,7 +435,10 @@ public void main (String[] args)
 
     }
 
-    writer.close();
+    if (getOutputType(props, verbose) == HTTPOUTPUT)
+    {
+        sleep (60);
+    }
 
     System.exit(0);
 }
