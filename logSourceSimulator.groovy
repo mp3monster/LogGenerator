@@ -2,6 +2,7 @@ import java.util.StringTokenizer;
 import java.time.format.DateTimeFormatter;  
 import java.time.LocalDateTime;    
 import java.xml.*;
+import java.net.ServerSocket;
 
 // this utility will either delete the nominated node from the API management logical OR
 // approve a pending gateway join. The behaviour is dictated by the parameters
@@ -9,7 +10,10 @@ import java.xml.*;
 public class LogSimulator 
 {
 
-final static String HELPMSG = "Help available at https://github.com/mp3monster/LogGenerator";
+final static String HELPMSG = "Parameters :\n" +
+                                "   1. Expected: properties file e.g. tool.properties containing all the controls - \n      if not defined then a default tool.properties will attempt to be loaded\n" +
+                                "   2. Optional: simulated log messages e.g. data.txt - \n      if provided this overrides the source file defined in the properties" +
+                                "\n\nFull help available at https://github.com/mp3monster/LogGenerator \n\n";
 
 final static String YPROPVAL = "y";
 final static String YESPROPVAL = "yes";
@@ -22,6 +26,8 @@ final static String SOURCEFORMAT = "SOURCEFORMAT";
 final static String TARGETFORMAT = "TARGETFORMAT";
 final static String SOURCEFILE = "SOURCE";
 final static String TARGETFILE = "TARGETFILE";
+final static String TARGETIP="TARGETIP";
+final static String TARGETPORT="TARGETPORT";
 final static String TARGETDTG = "TARGETDTG";
 final static String TARGETURL = "TARGETURL";
 final static String SOURCEDTG = "SOURCEDTG";
@@ -33,6 +39,8 @@ final static String HTTP = "HTTP";
 final static int HTTPOUTPUT = 1;
 final static String FILE = "file";
 final static int FILEOUTPUT = 2;
+final static String TCPOUT="TCP";
+final static int TCPOUTPUT = 3;
 
 final static String DEFAULTLOC= "DEFAULT-LOCATION";
 final static String DEFAULTPROC= "DEFAULT-PROCESS";
@@ -89,6 +97,10 @@ static int getOutputType (Properties props, boolean verbose)
             {
                 outType = HTTPOUTPUT;
             }    
+            else if (props.get(OUTTYPE).equalsIgnoreCase(TCPOUT))
+            {
+                outType = TCPOUTPUT;
+            }
             else
             {
                 if (verbose){System.out.println ("Unknown output type :" + props.get(OUTTYPE));}
@@ -262,6 +274,7 @@ public void main (String[] args)
     System.out.println ("Starting ...");
 
     String propFilename = PROPFILENAMEDEFAULT;
+    String sourceFilename = null;
     Properties props = new Properties();
 
     // process the command line properties
@@ -269,12 +282,30 @@ public void main (String[] args)
     {
         if (args[0].equalsIgnoreCase("-h"))
         {
-            System.out.println("Parameters needed are:\n" + HELPMSG);
+            System.out.println(HELPMSG);
+            System.exit(-1);
         }
         else 
         {
             propFilename = args[0];
             println ("Going to use " + propFilename);
+
+            if (args.size() > 1)
+            {
+                // we've been given the data file in the command line - this trumps any file set in the properties
+                sourceFilename = args[1];
+
+                if (sourceFilename != null)
+                {
+                    sourceFilename = sourceFilename.trim();
+
+                    if (sourceFilename.length() < 1)
+                    {
+                        sourceFilename = null;
+                    }
+
+                }
+            }
         }
     }
     else
@@ -299,7 +330,11 @@ public void main (String[] args)
         if ((targetSeparator == null) || (targetSeparator.size() == 0))
         {
             props.put (TARGETSEPARATOR, " ");
+        }
 
+        if (sourceFilename != null)
+        {
+            props.put (SOURCEFILE, sourceFilename);
         }
 
     }
@@ -421,6 +456,17 @@ public void main (String[] args)
                     String response= webConnection.getContent();
 
                 break
+
+                case TCPOUTPUT:
+                    System.out.println ("about to fire TCP:" + output);
+                    Socket s = new Socket(props.get(TARGETIP), Integer.parseInt(props.get(TARGETPORT)));
+                    OutputStream outStream = s.getOutputStream();
+                    Writer writer = new PrintWriter (outStream, true);
+                    writer.println (output);
+                    writer.close();
+                    s.close();
+                break
+
 
                 default:
                     if (verbose) {System.out.println (outType);}
