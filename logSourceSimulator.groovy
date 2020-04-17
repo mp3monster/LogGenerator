@@ -3,6 +3,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;    
 import java.xml.*;
 import java.net.ServerSocket;
+import java.util.logging.*;
 
 // this utility will either delete the nominated node from the API management logical OR
 // approve a pending gateway join. The behaviour is dictated by the parameters
@@ -20,6 +21,8 @@ final static String YESPROPVAL = "yes";
 final static String TPROPVAL = "t";
 final static String TRUEPROPVAL = "true";
 final static String LOOP = "REPEAT";
+final static String JULCONFIG = "JULCONFIG";
+final static String JULNAME = "JULName";
 final static String SOURCESEPARATOR= "SOURCE-SEPARATOR";
 final static String TARGETSEPARATOR= "TARGET-SEPARATOR";
 final static String SOURCEFORMAT = "SOURCEFORMAT";
@@ -32,6 +35,7 @@ final static String TARGETDTG = "TARGETDTG";
 final static String TARGETURL = "TARGETURL";
 final static String SOURCEDTG = "SOURCEDTG";
 final static String OUTTYPE = "OUTPUTTYPE";
+final static String DEFAULTLOGLEVEL = "DEFAULT-LOGLEVEL";
 final static String CONSOLE = "console";
 final static int UNKNOWNOUTPUT = -1;
 final static int CONSOLEOUTPUT = 0;
@@ -41,6 +45,8 @@ final static String FILE = "file";
 final static int FILEOUTPUT = 2;
 final static String TCPOUT="TCP";
 final static int TCPOUTPUT = 3;
+final static int JUL = 4;
+final static String JULOUT="JUL";
 
 final static String DEFAULTLOC= "DEFAULT-LOCATION";
 final static String DEFAULTPROC= "DEFAULT-PROCESS";
@@ -56,6 +62,8 @@ final static String PROCESS = "%p";
 final static String PROPFILENAMEDEFAULT = "tool.properties";
 
 private boolean verbose = false; // allows us to pretty print all the API calls if necessary
+
+private Logger juLogger = null;
 
 class LogSimulatorException extends Exception
 {
@@ -79,27 +87,80 @@ static class LogEntry
     }
 }
 
+static Level toJULLevel (String level, Properties props)
+{
+    if ((level == null) || (level.length() == 0))
+    {
+        if ((props.get(DEFAULTLOGLEVEL) != null) || (props.get(DEFAULTLOGLEVEL).length() > 0))
+        {
+            level = props.get(DEFAULTLOGLEVEL);
+        }
+        else
+        {
+            return Level.INFO;
+        }
+    }
+    
+    if (level.equalsIgnoreCase("SEVERE") || level.equalsIgnoreCase("ERROR") || level.equalsIgnoreCase("FATAL"))
+    {
+        return Level.SEVERE;
+    }
+    else if (level.equalsIgnoreCase("WARNING") || level.equalsIgnoreCase("WARN"))
+    {
+        return Level.WARNING;
+    }
+    else if (level.equalsIgnoreCase("INFO") || level.equalsIgnoreCase("INFORMATION"))
+    {
+        return Level.INFO;
+    }
+    else if (level.equalsIgnoreCase("CONFIG"))
+    {
+        return Level.CONFIG;
+    }
+    else if (level.equalsIgnoreCase("FINE") || level.equalsIgnoreCase("TRACE"))
+    {
+        return Level.FINE;
+    }
+    else if (level.equalsIgnoreCase("FINER"))
+    {
+        return Level.FINER;
+    }
+    else if (level.equalsIgnoreCase("FINEST"))
+    {
+        return Level.FINEST;
+    }
+    else
+    {
+        return Level.INFO;
+    }
+}
+
 
 static int getOutputType (Properties props, boolean verbose)
 {
         int outType = UNKNOWNOUTPUT;
-        if ((props.get(OUTTYPE)  != null) && (props.get(OUTTYPE).length() > 0))
+        String propOut = props.get(OUTTYPE);
+        if ((propOut  != null) && (propOut.length() > 0))
         {
-            if (props.get(OUTTYPE).equalsIgnoreCase(FILE))
+            if (propOut.equalsIgnoreCase(FILE))
             {
                 outType = FILEOUTPUT;
             }
-            else if (props.get(OUTTYPE).equalsIgnoreCase(CONSOLE))
+            else if (propOut.equalsIgnoreCase(CONSOLE))
             {
                 outType = CONSOLEOUTPUT;
             }
-            else if (props.get(OUTTYPE).equalsIgnoreCase(HTTP))
+            else if (propOut.equalsIgnoreCase(HTTP))
             {
                 outType = HTTPOUTPUT;
             }    
-            else if (props.get(OUTTYPE).equalsIgnoreCase(TCPOUT))
+            else if (propOut.equalsIgnoreCase(TCPOUT))
             {
                 outType = TCPOUTPUT;
+            }
+            else if (propOut.equalsIgnoreCase(JULOUT))
+            {
+                outType = JUL;
             }
             else
             {
@@ -110,6 +171,7 @@ static int getOutputType (Properties props, boolean verbose)
         return outType;
 }
 
+// Takes the log event elements and builds the output using the formatting template
 static String logToString (LogEntry log, String dtgFormat, String separator, String outTemplate, boolean verbose)
 {
 
@@ -128,7 +190,7 @@ static String logToString (LogEntry log, String dtgFormat, String separator, Str
             {
                 DateTimeFormatter dtf = DateTimeFormatter.ofPattern(dtgFormat);  
                 LocalDateTime now = LocalDateTime.now();
-                if (verbose) {System.out.println (TIME + "   " + now.format(dtf));}
+                if (verbose) {System.out.println (TIME + " == " + now.format(dtf));}
                 output = output.replace(TIME, now.format(dtf));
             }
 
@@ -186,6 +248,7 @@ static String logToString (LogEntry log, String dtgFormat, String separator, Str
 
 static ArrayList<LogEntry> loadLogs (String source, String separator, String format, boolean verbose)
 {
+
     BufferedReader sourceReader = new BufferedReader(new FileReader(source));  //creates a buffering character input stream  
     ArrayList<LogEntry> lines = new ArrayList<LogEntry> ();
     String[] formatArray = format.split (" ");
@@ -385,6 +448,10 @@ public void main (String[] args)
         LogEntry.defaultProcess= props.get(DEFAULTPROC);
     }    
 
+    // initialize the default values
+    LogEntry.defaultLocation = props.get(DEFAULTLOC, "");
+    LogEntry.defaultLogLevel = props.get(DEFAULTLOGLEVEL, "");
+    LogEntry.defaultProcess = props.get(DEFAULTPROC, "");
 
     ArrayList<LogEntry> logs = loadLogs (props.get(SOURCEFILE), props.get (SOURCESEPARATOR), props.get (SOURCEFORMAT), verbose);
     LogEntry log = null;
@@ -438,7 +505,7 @@ public void main (String[] args)
                     }
                     bufferedWriter.write(output+"\n");
                     bufferedWriter.flush();
-                break
+                break;
 
                 case HTTPOUTPUT:
                     if (verbose) {System.out.println ("HTTP:" + output);}
@@ -454,22 +521,45 @@ public void main (String[] args)
                         outputStream.flush();
                     }
                     String response= webConnection.getContent();
-
-                break
+                break;
 
                 case TCPOUTPUT:
-                    System.out.println ("about to fire TCP:" + output);
-                    Socket s = new Socket(props.get(TARGETIP), Integer.parseInt(props.get(TARGETPORT)));
-                    OutputStream outStream = s.getOutputStream();
+                    if (verbose) {System.out.println ("about to fire TCP:" + output);}
+                    Socket sock = new Socket(props.get(TARGETIP), Integer.parseInt(props.get(TARGETPORT)));
+                    OutputStream outStream = sock.getOutputStream();
                     Writer writer = new PrintWriter (outStream, true);
                     writer.println (output);
                     writer.close();
-                    s.close();
-                break
+                    sock.close();
+                break;
 
+                case JUL:
+                    if (juLogger == null)
+                    {
+                        LogManager manager = LogManager.getLogManager();
+                        String loggerConfig = props.get(JULCONFIG);
+                        if (loggerConfig != null)
+                        {
+                            System.out.println ("properties:" + loggerConfig);
+                            manager.readConfiguration(new FileInputStream(loggerConfig));
+                        }
+                        String loggerName = props.get(JULNAME);
+                        if (loggerName == null)
+                        {
+                            loggerName = "";
+                        }
+                        juLogger = Logger.getLogger (loggerName);
+
+                        if (verbose) {System.out.println ("Created JUL Logger called " + juLogger.getName());}
+
+                    }
+
+                    if (verbose) {System.out.println ("about to fire Java Util Logging ("+toJULLevel(log.logLevel, props)+") " + log.message);}
+                    juLogger.logp (toJULLevel(log.logLevel, props), log.location,"", log.message);
+                break;
 
                 default:
-                    if (verbose) {System.out.println (outType);}
+                    if (verbose) {System.out.println (getOutputType(props, verbose));}
 
             }
 
@@ -481,9 +571,20 @@ public void main (String[] args)
 
     }
 
-    if (getOutputType(props, verbose) == HTTPOUTPUT)
+    // tidy up
+    switch(getOutputType(props, verbose)) 
     {
-        sleep (60);
+        case HTTPOUTPUT:
+            sleep (60);
+        break;
+
+        case JUL:
+            juLogger.finalize();
+            juLogger = null;
+        break;
+
+        default:
+            if (verbose) {System.out.println ("No clear down needed");}
     }
 
     System.exit(0);
