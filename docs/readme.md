@@ -11,7 +11,7 @@ The properties file drives all the different possible behaviours.. The following
 | SOURCEFORMAT     | This describes how the source file will be structured. Each of the parts needed are denoted using the pattern of %<character> where the character will represent the element type.  The values supported are:  %t - time (which can be expressed as +nnn or as a date time group. When defined as +nnn this is used as the number of milliseconds from the previous log event). | %t %m                                                        | Y        |
 | REPEAT           | How many times the data set should be iterated over          | 1                                                            | N        |
 | TARGETFILE       | This is the name of the file to be written to.               | test.log                                                     | N        |
-| TARGETFORMAT     | This describes which values are written and where they get written to using the same %<character> notation used in the SOURCEFORMAT | A JSON output could be described with:{"message": "%m"} for example | Y        |
+| TARGETFORMAT     | This describes which values are written and where they get written to using the same %<character> notation used in the SOURCEFORMAT. See below for more details on the characters codes available. | A JSON output could be described with:{"message": "%m"} for example | Y        |
 | TARGETDTG        | Describes the formatting of the date time group to be used. This aligns to standard Java notation | yyyy/MM/dd HH:mm:ss                                          | N        |
 | DEFAULT-PROPCESS | Some applications like to also record a thread identifier. This defines the string to be used when this is required | Thread-1                                                     | N        |
 | DEFAULT-LOCATION | Java applications and some other logging solutions record not just the message but also a class path or similar detail. This provides a default value to use in such a use case. |                                                              |          |
@@ -20,5 +20,14 @@ The properties file drives all the different possible behaviours.. The following
 
 
 
+Character Codes Available
 
+| Purpose    | Character Code | Description                                                  | Input / Output |
+| ---------- | -------------- | ------------------------------------------------------------ | -------------- |
+| Time stamp | %t             | This can be expressed as a datetime string, or when prefixed with + a number of milliseconds offset from the previous message. Note when a fulltime stamp is provided it can be used to determine the equivelent time delay between events when replaying for now (essential for using the payload to loop) | I/O            |
+| Message    | %m             | The actual log message part of the payload                   | I/O            |
+| Log Level  | %l             | When simulating logs - we often want to include the relevant log level label | I/O            |
+| Process    | %p             | Sometimes logs will include thread identifiers - this allows us to define those threads or processes in the log | O              |
+| Location   | %c             | This is typically the class path (aka location in code) that is incorporated into the log files | I/O            |
 
+When consuming a log file - it is necessary for there different elements to have a consistent separator.  The separator to use can be defined in the properties file.
