@@ -22,12 +22,14 @@ The properties file drives all the different possible behaviours.. The following
 
 Character Codes Available
 
-| Purpose    | Character Code | Description                                                  | Input / Output |
-| ---------- | -------------- | ------------------------------------------------------------ | -------------- |
-| Time stamp | %t             | This can be expressed as a datetime string, or when prefixed with + a number of milliseconds offset from the previous message. Note when a fulltime stamp is provided it can be used to determine the equivelent time delay between events when replaying for now (essential for using the payload to loop) | I/O            |
-| Message    | %m             | The actual log message part of the payload                   | I/O            |
-| Log Level  | %l             | When simulating logs - we often want to include the relevant log level label | I/O            |
-| Process    | %p             | Sometimes logs will include thread identifiers - this allows us to define those threads or processes in the log | O              |
-| Location   | %c             | This is typically the class path (aka location in code) that is incorporated into the log files | I/O            |
+| Purpose                | Character Code | Description                                                  | Input / Output |
+| ---------------------- | -------------- | ------------------------------------------------------------ | -------------- |
+| Time stamp             | %t             | This can be expressed as a datetime string, or when prefixed with + a number of milliseconds offset from the previous message. Note when a fulltime stamp is provided it can be used to determine the equivelent time delay between events when replaying for now (essential for using the payload to loop) | I/O            |
+| Message                | %m             | The actual log message part of the payload                   | I/O            |
+| Log Level              | %l             | When simulating logs - we often want to include the relevant log level label | I/O            |
+| Process                | %p             | Sometimes logs will include thread identifiers - this allows us to define those threads or processes in the log | O              |
+| Location               | %c             | This is typically the class path (aka location in code) that is incorporated into the log files | I/O            |
+| loop/iteration counter | %i             | This provides the ability to include into the output the count of which loop through the data set that is occuring | O              |
+| record in loop         | %j             | This can be used to include the index of the line in the source file into the output | O              |
 
 When consuming a log file - it is necessary for there different elements to have a consistent separator.  The separator to use can be defined in the properties file.

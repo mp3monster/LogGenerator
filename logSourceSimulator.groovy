@@ -59,6 +59,7 @@ final static String LOCATION = "%c";
 final static String MESSAGE = "%m";
 final static String PROCESS = "%p";
 final static String LOOPCOUNTER = "%i";
+final static String ITERCOUNTER = "%j";
 
 final static String PROPFILENAMEDEFAULT = "tool.properties";
 
@@ -173,7 +174,8 @@ static int getOutputType (Properties props, boolean verbose)
 }
 
 // Takes the log event elements and builds the output using the formatting template
-static String logToString (LogEntry log, String dtgFormat, String separator, String outTemplate, boolean verbose, int counter)
+static String logToString (LogEntry log, String dtgFormat, String separator, String outTemplate, 
+                            boolean verbose, int counter, int iterCount)
 {
 
             String output = null;
@@ -246,7 +248,10 @@ static String logToString (LogEntry log, String dtgFormat, String separator, Str
             {
                 output = output.replace(LOOPCOUNTER, String.valueOf (counter));
             }
-
+            if (output.indexOf (ITERCOUNTER) > -1)
+            {
+                output = output.replace(ITERCOUNTER, String.valueOf (iterCount));
+            }
 
             return output;
 }
@@ -483,6 +488,7 @@ public void main (String[] args)
 
     while (loopCount < loopTotal)
     {
+        int lineCount = 0;
         loopCount++;
         if (verbose) {System.out.println ("Performing data set pass " + loopCount + " of " + loopTotal);}
 
@@ -493,11 +499,12 @@ public void main (String[] args)
 
         while (iter.hasNext())
         {
+            lineCount++;
             DateTimeFormatter dtf = DateTimeFormatter.ofPattern(dtgFormat);  
             LocalDateTime now = LocalDateTime.now();
 
             log = (LogEntry) iter.next();
-            String output =  logToString(log, dtgFormat, separator,  props.get(TARGETFORMAT),  verbose, loopCount);
+            String output =  logToString(log, dtgFormat, separator,  props.get(TARGETFORMAT),  verbose, loopCount, lineCount);
             String iterCount = "";
 
 
