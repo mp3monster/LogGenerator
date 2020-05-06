@@ -1,6 +1,6 @@
 The tool is executed with the command: *groovy logSourceSimulator.groovy <properties file>* for example: groovy *logSourceSimulator.groovy testConfigurations\\tool.properties*
 
-The properties file drives all the different possible behaviours.. The following table describes each of the properties and when they are needed.
+The properties file drives all the different possible behaviours. The following table describes each of the properties and when they are needed.
 
 
 
@@ -15,8 +15,9 @@ The properties file drives all the different possible behaviours.. The following
 | TARGETDTG        | Describes the formatting of the date time group to be used. This aligns to standard Java notation | yyyy/MM/dd HH:mm:ss                                          | N        |
 | DEFAULT-PROPCESS | Some applications like to also record a thread identifier. This defines the string to be used when this is required | Thread-1                                                     | N        |
 | DEFAULT-LOCATION | Java applications and some other logging solutions record not just the message but also a class path or similar detail. This provides a default value to use in such a use case. |                                                              |          |
-| DEFAULT-LOGLEVEL | Some log formats require a log level - this defines a default log level to be recorded |                                                              |          |
-| VERBOSE          | Sets the tool to be verbose or not, in verbose mode it will write to console what the utility is doing.  Accepted values are true \|  false.  If the property is not set the the value is treated as false. |                                                              |          |
+| DEFAULT-LOGLEVEL | Some log formats require a log level - this defines a default log level to be recorded |                                                              | N        |
+| ACCELERATEBY     | Integer that can be specified to define a rate of acceleration of the output. So if the log derived velocity is once per second, then setting the ACCELERATEBY value to  2 would produce output at 1/2 second.  If a value is not set then the log derived velocity is used. | 2                                                            | N        |
+| VERBOSE          | Sets the tool to be verbose or not, in verbose mode it will write to console what the utility is doing.  Accepted values are true \|  false.  If the property is not set the the value is treated as false. |                                                              | N        |
 
 
 

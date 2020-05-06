@@ -36,6 +36,7 @@ final static String TARGETURL = "TARGETURL";
 final static String SOURCEDTG = "SOURCEDTG";
 final static String OUTTYPE = "OUTPUTTYPE";
 final static String DEFAULTLOGLEVEL = "DEFAULT-LOGLEVEL";
+final static String ACCELERATOR = "ACCELERATEBY";
 final static String CONSOLE = "console";
 final static int UNKNOWNOUTPUT = -1;
 final static int CONSOLEOUTPUT = 0;
@@ -335,7 +336,7 @@ static ArrayList<LogEntry> loadLogs (String source, String separator, String for
         }
 
         lines.add(logEntry);
-        if (verbose){System.out.println (logEntry.toString());}
+        if (verbose){System.out.println ("entry ==>" + logEntry.toString());}
         line = sourceReader.readLine();
 
     }
@@ -457,7 +458,22 @@ public void main (String[] args)
     if ((props.get(DEFAULTPROC) != null) && (props.get(DEFAULTPROC).length() > 0))
     {
         LogEntry.defaultProcess= props.get(DEFAULTPROC);
-    }    
+    } 
+
+    int accelerationFactor =1;
+    if ((props.get(ACCELERATOR) != null) && (props.get(ACCELERATOR).length() > 0))
+    {
+        try
+        {
+            accelerationFactor = Integer.parseInt(props.get(ACCELERATOR));
+        }
+        catch (NumberFormatException err)
+        {
+            System.out.println ("Couldn't process accelerator value >" + props.get(ACCELERATOR)+"<");
+        }
+    }
+
+    
 
     // initialize the default values
     LogEntry.defaultLocation = props.get(DEFAULTLOC, "");
@@ -506,7 +522,6 @@ public void main (String[] args)
             log = (LogEntry) iter.next();
             String output =  logToString(log, dtgFormat, separator,  props.get(TARGETFORMAT),  verbose, loopCount, lineCount);
             String iterCount = "";
-
 
             switch(getOutputType(props, verbose)) 
             {
@@ -583,13 +598,20 @@ public void main (String[] args)
                 break;
 
                 default:
-                    if (verbose) {System.out.println (getOutputType(props, verbose));}
+                    if (verbose) {System.out.println ("defaulted==>" + getOutputType(props, verbose));}
 
             }
 
             if (log != null)
             {
-                sleep (log.offset);
+                try
+                {
+                    sleep (Math.round((log.offset)/accelerationFactor));
+                }
+                catch (Exception err)
+                {
+                    sleep (log.offset);
+                }
             }
         }
 
