@@ -272,7 +272,7 @@ static ArrayList<LogEntry> loadLogs (String source, String separator, String for
     String line = sourceReader.readLine();
     while (line != null)
     {
-        LogEntry logEntry = new LogEntry();
+        LogEntry aLogEntry = new LogEntry();
         StringTokenizer st = new StringTokenizer(line, separator); // why does it fail when we pass in the separator
 
         int fmtIdx = 0;
@@ -290,7 +290,7 @@ static ArrayList<LogEntry> loadLogs (String source, String separator, String for
                 {
                     if (element.charAt(0) == '+')
                     {
-                        logEntry.offset = Integer.parseInt(element.substring(1));
+                        aLogEntry.offset = Integer.parseInt(element.substring(1));
                         valueSet = true;
                     }
                     else
@@ -300,29 +300,29 @@ static ArrayList<LogEntry> loadLogs (String source, String separator, String for
                 }
                 else if (formatArray[fmtIdx].equals (LOGLEVEL))
                 {
-                    logEntry.logLevel = element;
+                    aLogEntry.logLevel = element;
                     valueSet = true;
 
                 }
                 else if (formatArray[fmtIdx].equals (LOCATION))
                 {
-                    logEntry.location = element;
+                    aLogEntry.location = element;
                     valueSet = true;
 
                 }    
                 else if (formatArray[fmtIdx].equals (MESSAGE))
                 {
-                    logEntry.message = element;
+                    aLogEntry.message = element;
                     while (st.hasMoreElements())
                     {
-                        logEntry.message = logEntry.message + separator + st.nextElement();
+                        aLogEntry.message = aLogEntry.message + separator + st.nextElement();
                     }
                     valueSet = true;
 
                 } 
                 else if (formatArray[fmtIdx].equals (PROCESS))
                 {
-                    logEntry.process = element;
+                    aLogEntry.process = element;
                     valueSet = true;
 
                 }                   
@@ -335,8 +335,8 @@ static ArrayList<LogEntry> loadLogs (String source, String separator, String for
             valueSet = false;
         }
 
-        lines.add(logEntry);
-        if (verbose){System.out.println ("entry ==>" + logEntry.toString());}
+        lines.add(aLogEntry);
+        if (verbose){System.out.println ("entry ==>" + aLogEntry.toString());}
         line = sourceReader.readLine();
 
     }
@@ -344,7 +344,8 @@ static ArrayList<LogEntry> loadLogs (String source, String separator, String for
     return lines;
 }
 
-public void main (String[] args)
+// public void main (String[] args)
+public void core (String[] args)
 {
     System.out.println ("Starting ...");
 
@@ -635,7 +636,13 @@ public void main (String[] args)
 
     System.exit(0);
 }
+
+public static void main (String[] args)
+{
+    new LogSimulator().core(args); 
 }
 
-    new LogSimulator().main(args);
+}
+
+    //new LogSimulator().core(args);
 
