@@ -1,1 +1,1 @@
-groovy logSourceSimulator.groovy -h
+groovy LogSimulator.groovy -h
