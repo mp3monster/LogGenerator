@@ -51,7 +51,7 @@ final static String JULOUT="JUL";
 final static int SYSSTD = 5;
 final static String SYSSTDOUT="STDOUT";
 final static int SYSERR = 6;
-final static String SYSRROUT="ERROUT";
+final static String SYSERROUT="ERROUT";
 
 
 final static String DEFAULTLOC= "DEFAULT-LOCATION";
