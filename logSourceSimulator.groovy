@@ -48,6 +48,11 @@ final static String TCPOUT="TCP";
 final static int TCPOUTPUT = 3;
 final static int JUL = 4;
 final static String JULOUT="JUL";
+final static int STD = 5;
+final static String STDOUT="STDOUT";
+final static int ERR = 6;
+final static String ERROUT="ERROUT";
+
 
 final static String DEFAULTLOC= "DEFAULT-LOCATION";
 final static String DEFAULTPROC= "DEFAULT-PROCESS";
@@ -165,6 +170,14 @@ static int getOutputType (Properties props, boolean verbose)
             {
                 outType = JUL;
             }
+            else if (propOut.equalsIgnoreCase(STD))
+            {
+                outType = STDOUT;
+            }     
+            else if (propOut.equalsIgnoreCase(ERR))
+            {
+                outType = ERROUT;
+            }                       
             else
             {
                 if (verbose){System.out.println ("Unknown output type :" + props.get(OUTTYPE));}
@@ -596,6 +609,14 @@ public void main (String[] args)
                     }
 
                 break;
+
+                case STD:
+                    System.out.println (output);
+                break;
+
+                case ERR:
+                    System.err.println (output);
+                break;                
 
                 default:
                     if (verbose) {System.out.println ("defaulted==>" + getOutputType(props, verbose));}
