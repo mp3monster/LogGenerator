@@ -48,10 +48,10 @@ final static String TCPOUT="TCP";
 final static int TCPOUTPUT = 3;
 final static int JUL = 4;
 final static String JULOUT="JUL";
-final static int STD = 5;
-final static String STDOUT="STDOUT";
-final static int ERR = 6;
-final static String ERROUT="ERROUT";
+final static int SYSSTD = 5;
+final static String SYSSTDOUT="STDOUT";
+final static int SYSERR = 6;
+final static String SYSRROUT="ERROUT";
 
 
 final static String DEFAULTLOC= "DEFAULT-LOCATION";
@@ -170,13 +170,13 @@ static int getOutputType (Properties props, boolean verbose)
             {
                 outType = JUL;
             }
-            else if (propOut.equalsIgnoreCase(STD))
+            else if (propOut.equalsIgnoreCase(SYSSTDOUT))
             {
-                outType = STDOUT;
+                outType = SYSSTD;
             }     
-            else if (propOut.equalsIgnoreCase(ERR))
+            else if (propOut.equalsIgnoreCase(SYSERROUT))
             {
-                outType = ERROUT;
+                outType = SYSERR;
             }                       
             else
             {
@@ -611,11 +611,11 @@ public void core (String[] args)
 
                 break;
 
-                case STD:
+                case SYSSTD:
                     System.out.println (output);
                 break;
 
-                case ERR:
+                case SYSERR:
                     System.err.println (output);
                 break;                
 
