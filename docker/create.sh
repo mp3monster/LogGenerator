@@ -1,0 +1,1 @@
+docker build -f logger.dockerfile --force-rm -t mp3monster/logger:v1 ./
