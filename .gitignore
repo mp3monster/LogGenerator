@@ -1,3 +1,7 @@
 
 Chapter2/
 logSourceSimulator-book.bat
+
+*.class
+
+*.tmp
