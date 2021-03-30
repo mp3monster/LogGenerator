@@ -17,3 +17,5 @@ spec:
       containers:
       - name: log-simulator
         image: mp3monster/log-simulator:v1
+        ports:
+        - containerPort: 80
