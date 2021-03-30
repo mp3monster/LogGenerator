@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-simulator
+  labels:
+    app: log-simulator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-simulator
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: log-simulator
+        image: mp3monster/log-simulator:v1
