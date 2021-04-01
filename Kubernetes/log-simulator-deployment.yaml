@@ -12,7 +12,7 @@ spec:
   template:
     metadata:
       labels:
-        app: nginx
+        app: ubuntu:latest
     spec:
       containers:
       - name: log-simulator
