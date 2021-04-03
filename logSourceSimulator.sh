@@ -1,1 +1,1 @@
-groovy LogSimulator.groovy testConfigurations/tool.properties
+groovy LogSimulator.groovy testConfigurations/tool.linux.properties
