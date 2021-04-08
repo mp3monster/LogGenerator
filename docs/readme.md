@@ -37,9 +37,10 @@ When consuming a log file - it is necessary for there different elements to have
 
 ## Output Types
 
-The following table describes the output type options available
+The following table describes the output type options available:
 
-| Output Type configuration value                | Description      |
+| Output Type configuration value                | Description                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------------- |
 | file | Generates a file based on the other attributes |
 | HTTP | Will make an HTTP POST to the configure URL  |
 | TCP | Opens a socket and sends TCP traffic |
