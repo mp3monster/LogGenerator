@@ -1,3 +1,4 @@
+cd ..
 rm -rf ./classes/*
 rm logGenerator.jar
 rm -rf ./jar/*.jar
