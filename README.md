@@ -6,5 +6,8 @@ A utility for creating log files, or sending Log events to a defined URL. The to
 The tool uses a separate source file for its log entries. This file is identified in the properties file which controls all aspects of the utility. Full documentation at /docs/readme.md
 
 
-
 The code is licensed under Apache 2 
+
+## Batch & Shell Scripts
+
+A number of batch and shell scripts are provided in this directory. They are for the purpose of illustrating the different approaches to using the tool.
