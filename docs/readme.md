@@ -21,7 +21,7 @@ The properties file drives all the different possible behaviours. The following 
 
 
 
-Character Codes Available
+## Character Codes Available
 
 | Purpose                | Character Code | Description                                                  | Input / Output |
 | ---------------------- | -------------- | ------------------------------------------------------------ | -------------- |
@@ -34,3 +34,16 @@ Character Codes Available
 | record in loop         | %j             | This can be used to include the index of the line in the source file into the output | O              |
 
 When consuming a log file - it is necessary for there different elements to have a consistent separator.  The separator to use can be defined in the properties file.
+
+## Output Types
+
+The following table describes the output type options available
+
+| Output Type configuration value                | Description      |
+| file | Generates a file based on the other attributes |
+| HTTP | Will make an HTTP POST to the configure URL  |
+| TCP | Opens a socket and sends TCP traffic |
+| JUL | Java Logging with the Java Native logging mechanism which can be controlled through the logging configuration options|
+| STDOUT | Sends to Standard Out (console unless overridden by configurations) |
+| ERROUT | Sends to Standard Error (console unless overridden by configurations) |
+
