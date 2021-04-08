@@ -1,3 +1,4 @@
+cd ..
 del ./classes/*
 del logGenerator.jar
 del ./jar/*.jar
