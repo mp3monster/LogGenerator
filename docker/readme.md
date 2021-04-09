@@ -6,3 +6,5 @@ The build process is implemented simply by using the __create.sh__ script, which
 
 ## Execution Behaviour & Configuration to customize
 With a vanilla deployment, the container will run the LogGenerator tool using an internal small test data set and configuration which will mean that the logs are generated and sent to standard out. The configuration can then be replaced with specific scenarios.
+
+The override can be achived by mapping __/vol/conf/__ folder which should retain the external configuration.
