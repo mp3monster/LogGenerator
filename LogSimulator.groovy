@@ -561,11 +561,24 @@ public void core (String[] args)
                     webConnection.requestMethod = 'POST';
                     webConnection.setRequestProperty("content-type", "application/json");
 
-                    webConnection.with {
-                        outputStream.withWriter { writer ->  writer << output }
-                        outputStream.flush();
+                    boolean sent = false;
+
+                    while (!sent)
+                    {
+                        try{                        
+                        webConnection.with {
+                            outputStream.withWriter { writer ->  writer << output }
+                            outputStream.flush();
+                        }
+                            String response= webConnection.getContent();
+                            sent = true;
+                        }
+                        catch (Exception err)
+                        {
+                            System.out.println ("Err - try again in a a moment \n"+err.toString())
+                            sleep (100);
+                        }
                     }
-                    String response= webConnection.getContent();
                 break;
 
                 case TCPOUTPUT:
