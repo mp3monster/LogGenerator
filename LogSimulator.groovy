@@ -562,21 +562,28 @@ public void core (String[] args)
                     webConnection.setRequestProperty("content-type", "application/json");
 
                     boolean sent = false;
+                    boolean errCaught = false;
 
                     while (!sent)
                     {
                         try{                        
-                        webConnection.with {
-                            outputStream.withWriter { writer ->  writer << output }
-                            outputStream.flush();
-                        }
+                            webConnection.with {
+                                outputStream.withWriter { writer ->  writer << output }
+                                outputStream.flush();
+                            }
                             String response= webConnection.getContent();
                             sent = true;
+
+                            if (errCaught && verbose)
+                            {
+                             System.out.println ("Connection resolved, event sent");
+                            }
                         }
                         catch (Exception err)
                         {
-                            System.out.println ("Err - try again in a a moment \n"+err.toString())
+                            if (verbose) {System.out.println ("Err - try again in a a moment \n"+err.toString())}
                             sleep (100);
+                            errCaught = true;
                         }
                     }
                 break;
