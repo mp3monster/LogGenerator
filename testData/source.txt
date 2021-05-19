@@ -1,9 +1,6 @@
 +100 hello
 +3000 hear about the new O Reilly book
 +1000 called "Essential Changing stuff and seeing what happens"
-+2000 Documentation is like sex
-+2000 When it's good, it's very good
-+300 When it's bad, its better than nothing
 +1 Job requirement
 +5 must understand core programming concepts
 +10 able to code without cut and paste from StackOverflow
