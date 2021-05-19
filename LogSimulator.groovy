@@ -407,6 +407,7 @@ public void core (String[] args)
         println ("handling properties file - " + propFilename);
 
         File propFile = new File(propFilename);
+
         props.load(propFile.newDataInputStream());
 
         String sourceSeparator = props.get (SOURCESEPARATOR);
@@ -435,11 +436,9 @@ public void core (String[] args)
         System.exit(-1);
     }
 
-
     // verify all the parameters
     try
     {
-        // assert ((props.get(TARGETFILE) != null) && (props.get(TARGETFILE).size() > 0)): "SOURCE not defined";
         assert ((props.get(SOURCEFILE) != null) && (props.get(SOURCEFILE).size() > 0)): "TARGET not defined";
         assert ((props.get(SOURCEFORMAT) != null) && (props.get(SOURCEFORMAT).size() > 0)): "No formatting for output defined";
 
@@ -463,8 +462,6 @@ public void core (String[] args)
         verbose = false;
     }
 
-
-
     if ((props.get(DEFAULTLOC) != null) && (props.get(DEFAULTLOC).length() > 0))
     {
         LogEntry.defaultLocation = props.get(DEFAULTLOC);
@@ -480,6 +477,7 @@ public void core (String[] args)
         try
         {
             accelerationFactor = Integer.parseInt(props.get(ACCELERATOR));
+            if (verbose) {System.out.println ("Replay acceleration by " + accelerationFactor);}
         }
         catch (NumberFormatException err)
         {
@@ -500,6 +498,7 @@ public void core (String[] args)
     if ((props.get(TARGETDTG) != null) && (props.get(TARGETDTG).length() > 0))
     {
         dtgFormat = props.get(TARGETDTG);
+        if (verbose) {System.out.println ("Date time format " + dtgFormat);}
     }
 
     int loopTotal = 1;
@@ -509,6 +508,7 @@ public void core (String[] args)
         try
         {
             loopTotal = Integer.parseInt(props.get(LOOP));
+             if (verbose) {System.out.println ("Number of loops set is " + loopTotal);}
         }
         catch (NumberFormatException err)
         {
@@ -516,147 +516,159 @@ public void core (String[] args)
         }
     }
 
-    while (loopCount < loopTotal)
+    try
     {
-        int lineCount = 0;
-        loopCount++;
-        if (verbose) {System.out.println ("Performing data set pass " + loopCount + " of " + loopTotal);}
-
-        Iterator iter = logs.iterator();
-        String separator = props.get (TARGETSEPARATOR);
-
-        BufferedWriter bufferedWriter = null;
-
-        while (iter.hasNext())
+        while (loopCount < loopTotal)
         {
-            lineCount++;
-            DateTimeFormatter dtf = DateTimeFormatter.ofPattern(dtgFormat);  
-            LocalDateTime now = LocalDateTime.now();
+            int lineCount = 0;
+            loopCount++;
+            if (verbose) {System.out.println ("Performing data set pass " + loopCount + " of " + loopTotal);}
 
-            log = (LogEntry) iter.next();
-            String output =  logToString(log, dtgFormat, separator,  props.get(TARGETFORMAT),  verbose, loopCount, lineCount);
-            String iterCount = "";
+            Iterator iter = logs.iterator();
+            String separator = props.get (TARGETSEPARATOR);
 
-            switch(getOutputType(props, verbose)) 
+            BufferedWriter bufferedWriter = null;
+
+            while (iter.hasNext())
             {
-                case CONSOLEOUTPUT:
-                    if (verbose) {System.out.println ("Console:" + output);}
-                break
+                lineCount++;
+                DateTimeFormatter dtf = DateTimeFormatter.ofPattern(dtgFormat);  
+                LocalDateTime now = LocalDateTime.now();
 
-                case FILEOUTPUT: 
-                    if (bufferedWriter == null)
-                    {
-                        bufferedWriter = new BufferedWriter(new FileWriter(props.get(TARGETFILE), true));
-                    }
-                    bufferedWriter.write(output+"\n");
-                    bufferedWriter.flush();
-                break;
+                log = (LogEntry) iter.next();
+                String output =  logToString(log, dtgFormat, separator,  props.get(TARGETFORMAT),  verbose, loopCount, lineCount);
+                String iterCount = "";
 
-                case HTTPOUTPUT:
-                    if (verbose) {System.out.println ("HTTP:" + output);}
+                switch(getOutputType(props, verbose)) 
+                {
+                    case CONSOLEOUTPUT:
+                        if (verbose) {System.out.println ("Console:" + output);}
+                    break
 
-                    URL baseUrl = new URL(props.get(TARGETURL));
-                    URLConnection webConnection = baseUrl.openConnection();
-                    webConnection.doOutput = true;
-                    webConnection.requestMethod = 'POST';
-                    webConnection.setRequestProperty("content-type", "application/json");
+                    case FILEOUTPUT: 
+                        if (bufferedWriter == null)
+                        {
+                            assert ((props.get(TARGETFILE) != null) && (props.get(TARGETFILE).size() > 0)): "No target file for output defined";
+                            bufferedWriter = new BufferedWriter(new FileWriter(props.get(TARGETFILE), true));
+                        }
+                        bufferedWriter.write(output+"\n");
+                        bufferedWriter.flush();
+                    break;
 
-                    boolean sent = false;
-                    boolean errCaught = false;
+                    case HTTPOUTPUT:
+                        if (verbose) {System.out.println ("HTTP:" + output);}
 
-                    while (!sent)
-                    {
-                        try{                        
-                            webConnection.with {
-                                outputStream.withWriter { writer ->  writer << output }
-                                outputStream.flush();
+                        URL baseUrl = new URL(props.get(TARGETURL));
+                        URLConnection webConnection = baseUrl.openConnection();
+                        webConnection.doOutput = true;
+                        webConnection.requestMethod = 'POST';
+                        webConnection.setRequestProperty("content-type", "application/json");
+
+                        boolean sent = false;
+                        boolean errCaught = false;
+
+                        while (!sent)
+                        {
+                            try{                        
+                                webConnection.with {
+                                    outputStream.withWriter { writer ->  writer << output }
+                                    outputStream.flush();
+                                }
+                                String response= webConnection.getContent();
+                                sent = true;
+
+                                if (errCaught && verbose)
+                                {
+                                System.out.println ("Connection resolved, event sent");
+                                }
                             }
-                            String response= webConnection.getContent();
-                            sent = true;
-
-                            if (errCaught && verbose)
+                            catch (Exception err)
                             {
-                             System.out.println ("Connection resolved, event sent");
+                                if (verbose) {System.out.println ("Err - try again in a a moment \n"+err.toString())}
+                                sleep (100);
+                                errCaught = true;
                             }
+                        }
+                    break;
+
+                    case TCPOUTPUT:
+                        if (verbose) {System.out.println ("about to fire TCP:" + output);}
+                        Socket sock = new Socket(props.get(TARGETIP), Integer.parseInt(props.get(TARGETPORT)));
+                        OutputStream outStream = sock.getOutputStream();
+                        Writer writer = new PrintWriter (outStream, true);
+                        writer.println (output);
+                        writer.close();
+                        sock.close();
+                    break;
+
+                    case JUL:
+                        if (juLogger == null)
+                        {
+                            LogManager manager = LogManager.getLogManager();
+                            String loggerConfig = props.get(JULCONFIG);
+                            if (loggerConfig != null)
+                            {
+                                System.out.println ("properties:" + loggerConfig);
+                                manager.readConfiguration(new FileInputStream(loggerConfig));
+                            }
+                            String loggerName = props.get(JULNAME);
+                            if (loggerName == null)
+                            {
+                                loggerName = "";
+                            }
+                            juLogger = Logger.getLogger (loggerName);
+
+                            if (verbose) {System.out.println ("Created JUL Logger called " + juLogger.getName());}
+
+                        }
+
+                        if (verbose) {System.out.println ("about to fire Java Util Logging ("+toJULLevel(log.logLevel, props)+") " + log.message);}
+                        try 
+                        {
+                            juLogger.logp (toJULLevel(log.logLevel, props), log.location,"", output);
                         }
                         catch (Exception err)
                         {
-                            if (verbose) {System.out.println ("Err - try again in a a moment \n"+err.toString())}
-                            sleep (100);
-                            errCaught = true;
+                            if (verbose) {System.out.println ("Failed to log " + log.toString());}
                         }
-                    }
-                break;
 
-                case TCPOUTPUT:
-                    if (verbose) {System.out.println ("about to fire TCP:" + output);}
-                    Socket sock = new Socket(props.get(TARGETIP), Integer.parseInt(props.get(TARGETPORT)));
-                    OutputStream outStream = sock.getOutputStream();
-                    Writer writer = new PrintWriter (outStream, true);
-                    writer.println (output);
-                    writer.close();
-                    sock.close();
-                break;
+                    break;
 
-                case JUL:
-                    if (juLogger == null)
+                    case SYSSTD:
+                        System.out.println (output);
+                    break;
+
+                    case SYSERR:
+                        System.err.println (output);
+                    break;                
+
+                    default:
+                        if (verbose) {System.out.println ("defaulted==>" + getOutputType(props, verbose));}
+
+                }
+
+                if (log != null)
+                {
+                    try
                     {
-                        LogManager manager = LogManager.getLogManager();
-                        String loggerConfig = props.get(JULCONFIG);
-                        if (loggerConfig != null)
-                        {
-                            System.out.println ("properties:" + loggerConfig);
-                            manager.readConfiguration(new FileInputStream(loggerConfig));
-                        }
-                        String loggerName = props.get(JULNAME);
-                        if (loggerName == null)
-                        {
-                            loggerName = "";
-                        }
-                        juLogger = Logger.getLogger (loggerName);
-
-                        if (verbose) {System.out.println ("Created JUL Logger called " + juLogger.getName());}
-
-                    }
-
-                    if (verbose) {System.out.println ("about to fire Java Util Logging ("+toJULLevel(log.logLevel, props)+") " + log.message);}
-                    try 
-                    {
-                        juLogger.logp (toJULLevel(log.logLevel, props), log.location,"", output);
+                        sleep (Math.round((log.offset)/accelerationFactor));
                     }
                     catch (Exception err)
                     {
-                        if (verbose) {System.out.println ("Failed to log " + log.toString());}
+                        sleep (log.offset);
                     }
-
-                break;
-
-                case SYSSTD:
-                    System.out.println (output);
-                break;
-
-                case SYSERR:
-                    System.err.println (output);
-                break;                
-
-                default:
-                    if (verbose) {System.out.println ("defaulted==>" + getOutputType(props, verbose));}
-
-            }
-
-            if (log != null)
-            {
-                try
-                {
-                    sleep (Math.round((log.offset)/accelerationFactor));
-                }
-                catch (Exception err)
-                {
-                    sleep (log.offset);
                 }
             }
+
         }
+    }
+    catch (AssertionError err)
+    {
 
+        System.out.println(err.getMessage());
+        System.out.println(HELPMSG);
+
+        System.exit(-1);
     }
 
     // tidy up
