@@ -8,7 +8,7 @@ The process by which this JAR is created as ....
 
 1. clear out any lingering class and jar files in the ./jar and ./classes folders
 4. Generate Java class files from the groovy code: *groovyc -d classes LogSimulator.groovy* 
-5. Package up the new classes into a Jar file : *jar cfe .\\/ar/logSimulator.jar LogSimulator -C ./classes 
+5. Package up the new classes into a Jar file : *jar cfe ./jar/logSimulator.jar LogSimulator -C ./classes 
 
 
 
