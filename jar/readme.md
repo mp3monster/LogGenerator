@@ -4,7 +4,9 @@ This jar represents the process of taking a Groovy script and compiling it with 
 
 
 
-Originally we created the jar file manually using _groovyc_ and the jar command line. However a more elegant solution is available which includes ensuring that all the Groovy dependencies are bundled This is through the use of _scriptjar_ produced by Dmitrijs Artjomenko (dmitart) and available https://github.com/dmitart/scriptjar
+1. clear out any lingering class and jar files in the ./jar and ./classes folders
+4. Generate Java class files from the groovy code: *groovyc -d classes LogSimulator.groovy* 
+5. Package up the new classes into a Jar file : *jar cfe ./jar/logSimulator.jar LogSimulator -C ./classes 
 
 The details of the tool are in the Readme (https://github.com/mp3monster/scriptjar#readme). The translation of this beciomes:
 
