@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.xml.*;
 import java.net.ServerSocket;
 import java.util.logging.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 // this utility will either delete the nominated node from the API management logical OR
 // approve a pending gateway join. The behaviour is dictated by the parameters
@@ -54,6 +56,9 @@ public class LogGenerator
     final static String SYSSTDOUT="STDOUT";
     final static int SYSERR = 6;
     final static String SYSERROUT="ERROUT";
+    final static String ALLOWNL="ALLOWNL";
+    final static String FIRSTOFMULTILINEREGEX="FIRSTOFMULTILINEREGEX"
+
 
 
     final static String DEFAULTLOC= "DEFAULT-LOCATION";
@@ -75,10 +80,14 @@ public class LogGenerator
 
     private Logger juLogger = null;
 
+
     class LogSimulatorException extends Exception
     {
     }
 
+   /**
+    * This class holds the parsed log entry to be used
+    */
     static class LogEntry 
     {
         public static defaultLogLevel = "";
@@ -91,6 +100,9 @@ public class LogGenerator
         public String location = defaultLocation; // class path etc
         public String message = null; // core message
 
+        /**
+         * Used for inspacting the log values held
+        */
         public String toString ()
         {
             return "offset="+offset+"|"+logLevel+"|"+process+"|"+location+"|"+message;
@@ -182,14 +194,16 @@ public class LogGenerator
             }                       
             else
             {
-                if (verbose){System.out.println ("Unknown output type :" + props.get(OUTTYPE));}
+                if (verbose){System.out.println("Unknown output type :" + props.get(OUTTYPE));}
             }        
         }   
 
         return outType;
     }
 
-// Takes the log event elements and builds the output using the formatting template
+    /**
+     * Takes the log event elements and builds the output using the formatting template
+     */
     static String logToString (LogEntry log, String dtgFormat, String separator, String outTemplate, 
                                 boolean verbose, int counter, int iterCount)
     {
@@ -272,91 +286,224 @@ public class LogGenerator
         return output;
     }
 
+    static LogEntry createLogEntry (String line, String[] formatArray, String separator, boolean verbose)
+    {
+        LogEntry aLogEntry = new LogEntry();
+        StringTokenizer st = new StringTokenizer(line, separator); // why does it fail when we pass in the separator
 
-    static ArrayList<LogEntry> loadLogs (String source, String separator, String format, boolean verbose)
+        int fmtIdx = 0;
+        String element = null;
+        boolean valueSet = false;
+
+        while (st.hasMoreElements())
+        {
+            element = (String)st.nextElement();
+
+            while ((fmtIdx < formatArray.length) && (!valueSet))
+            {
+                element = element.trim();
+                if (formatArray[fmtIdx].equals (TIME))
+                {
+                    if (element.charAt(0) == '+')
+                    {
+                        aLogEntry.offset = Integer.parseInt(element.substring(1));
+                        valueSet = true;
+                    }
+                    else
+                    {
+                        // to convert date time to offset
+                    }
+                }
+                else if (formatArray[fmtIdx].equals (LOGLEVEL))
+                {
+                    aLogEntry.logLevel = element;
+                    valueSet = true;
+
+                }
+                else if (formatArray[fmtIdx].equals (LOCATION))
+                {
+                    aLogEntry.location = element;
+                    valueSet = true;
+
+                }    
+                else if (formatArray[fmtIdx].equals (MESSAGE))
+                {
+                    aLogEntry.message = element;
+                    while (st.hasMoreElements())
+                    {
+                        aLogEntry.message = aLogEntry.message + separator + st.nextElement();
+                    }
+                    valueSet = true;
+
+                } 
+                else if (formatArray[fmtIdx].equals (PROCESS))
+                {
+                    aLogEntry.process = element;
+                    valueSet = true;
+
+                }                   
+                else
+                {
+                    if (verbose) {System.out.println ("Unrecognized formatter code : " + formatArray[fmtIdx]);}
+                }       
+                fmtIdx++;       
+            }
+            valueSet = false;
+            
+            if (verbose){System.out.println ("entry ==>" + aLogEntry.toString());}
+            return aLogEntry;
+        }
+    }
+
+    static String mergeToString (ArrayList<String> staging, boolean verbose = false, boolean allowNL = false)
+    {
+        Iterator iter = staging.iterator();
+        String mergeStr = null;
+
+        while (iter.hasNext())
+        {
+            if (mergeStr == null)
+            {
+                if (verbose){System.out.println ("mergeToString start string");};
+                mergeStr = iter.next();
+            }
+            else
+            {
+                if (verbose){System.out.println ("mergeToString EXTEND string");};
+                mergeStr = mergeStr + "\n" + iter.next();
+            }
+        }
+
+        if (allowNL)
+        {
+            mergeStr = mergeStr.replace ('\\n', '\n');
+        }
+
+        if (verbose){System.out.println ("mergeToString result >>>>"+mergeStr+"<<<<");}
+        return mergeStr;
+    }
+
+    static ArrayList<LogEntry> simpleRead (BufferedReader sourceReader, String separator, String[] formatArray, boolean verbose, boolean allowNL)
+    {
+        ArrayList<LogEntry> lines = new ArrayList<LogEntry> ();
+
+        String line = sourceReader.readLine();
+        while (line != null)
+        {
+            if (allowNL)
+            {
+                line = line.replace ('\\n', '\n');
+            }    
+            lines.add(createLogEntry (line, formatArray, separator, verbose));
+            line = sourceReader.readLine();
+        }      
+
+        return lines;  
+    }
+
+    static ArrayList<LogEntry> multiLineRead (BufferedReader sourceReader, 
+                                                String separator, 
+                                                String[] formatArray, 
+                                                boolean verbose, 
+                                                String regex, 
+                                                boolean allowNL)
+    {
+        Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
+        Matcher matcher = null;
+        ArrayList<String> lines = new ArrayList<String> ();
+        ArrayList<String> staging = new ArrayList<String> ();
+        String line = sourceReader.readLine();
+        Boolean foundNewLogLine = false;
+
+        while (line != null)
+        {
+            matcher = pattern.matcher(line);
+            foundNewLogLine =matcher.find();
+            if (verbose){System.out.println ("foundNewLogLine="+foundNewLogLine);}
+
+            if (foundNewLogLine)
+            {
+                if (verbose){println ("new line identified, staging is " + staging.size());}
+                
+                if (!staging.isEmpty())
+                {
+                    lines.add (createLogEntry (mergeToString (staging, verbose, allowNL), formatArray, separator, verbose));
+
+                    staging.clear();
+                }
+
+                staging.add(line);
+
+                if (verbose){System.out.println ("adding (1)>"+line+"< to staging");}
+
+            }
+            else
+            {
+                staging.add(line);
+                if (verbose){System.out.println ("adding (2)>"+line+"< to staging")};
+            }
+
+            line = sourceReader.readLine();
+        }
+
+        if (!staging.isEmpty())
+        {
+            if (verbose){System.out.println ("final merge")};
+            String merged = mergeToString (staging, verbose, allowNL);
+          
+            lines.add (createLogEntry (merged, formatArray, separator, verbose));
+        }
+
+        return lines;
+    }
+
+    static ArrayList<LogEntry> loadLogs (String source, 
+                                        String separator, 
+                                        String format, 
+                                        boolean verbose, 
+                                        String multiLineREGEX, 
+                                        boolean allowNL)
     {
 
         BufferedReader sourceReader = new BufferedReader(new FileReader(source));  //creates a buffering character input stream  
-        ArrayList<LogEntry> lines = new ArrayList<LogEntry> ();
+        ArrayList<LogEntry> lines = null;
         String[] formatArray = format.split (" ");
         for (int idx = 0; idx < formatArray.length; idx++)
         {
             formatArray[idx] = formatArray[idx].trim();
         }
 
-        String line = sourceReader.readLine();
-        while (line != null)
+        if (multiLineREGEX == null)
         {
-            LogEntry aLogEntry = new LogEntry();
-            StringTokenizer st = new StringTokenizer(line, separator); // why does it fail when we pass in the separator
-
-            int fmtIdx = 0;
-            String element = null;
-            boolean valueSet = false;
-
-            while (st.hasMoreElements())
-            {
-                element = (String)st.nextElement();
-
-                while ((fmtIdx < formatArray.length) && (!valueSet))
-                {
-                    element = element.trim();
-                    if (formatArray[fmtIdx].equals (TIME))
-                    {
-                        if (element.charAt(0) == '+')
-                        {
-                            aLogEntry.offset = Integer.parseInt(element.substring(1));
-                            valueSet = true;
-                        }
-                        else
-                        {
-                            // to convert date time to offset
-                        }
-                    }
-                    else if (formatArray[fmtIdx].equals (LOGLEVEL))
-                    {
-                        aLogEntry.logLevel = element;
-                        valueSet = true;
-
-                    }
-                    else if (formatArray[fmtIdx].equals (LOCATION))
-                    {
-                        aLogEntry.location = element;
-                        valueSet = true;
-
-                    }    
-                    else if (formatArray[fmtIdx].equals (MESSAGE))
-                    {
-                        aLogEntry.message = element;
-                        while (st.hasMoreElements())
-                        {
-                            aLogEntry.message = aLogEntry.message + separator + st.nextElement();
-                        }
-                        valueSet = true;
-
-                    } 
-                    else if (formatArray[fmtIdx].equals (PROCESS))
-                    {
-                        aLogEntry.process = element;
-                        valueSet = true;
-
-                    }                   
-                    else
-                    {
-                        if (verbose) {System.out.println ("Unrecognized formatter code : " + formatArray[fmtIdx]);}
-                    }       
-                    fmtIdx++;       
-                }
-                valueSet = false;
-            }
-
-            lines.add(aLogEntry);
-            if (verbose){System.out.println ("entry ==>" + aLogEntry.toString());}
-            line = sourceReader.readLine();
-
+            lines = simpleRead (sourceReader, separator, formatArray, verbose, allowNL);
+        }
+        else
+        {
+            lines = multiLineRead (sourceReader, separator, formatArray, verbose, multiLineREGEX, allowNL);
         }
 
         return lines;
+    }
+
+    public boolean getPropAsBoolean (Properties props, String propName)
+    {
+        boolean property = false;
+
+        if (props == null)
+        {
+            return false;
+        }
+
+        if ((props.get(propName) != null) && (props.get(propName).equalsIgnoreCase("true")))
+        {
+            property=true;
+        }
+        else
+        {
+            property = false;
+        }
+
+        return property;
     }
 
     public void core (String[] args)
@@ -493,7 +640,12 @@ public class LogGenerator
         LogEntry.defaultLogLevel = props.get(DEFAULTLOGLEVEL, "");
         LogEntry.defaultProcess = props.get(DEFAULTPROC, "");
 
-        ArrayList<LogEntry> logs = loadLogs (props.get(SOURCEFILE), props.get (SOURCESEPARATOR), props.get (SOURCEFORMAT), verbose);
+        ArrayList<LogEntry> logs = loadLogs (props.get(SOURCEFILE), 
+                                            props.get (SOURCESEPARATOR), 
+                                            props.get (SOURCEFORMAT), 
+                                            verbose, 
+                                            props.get(FIRSTOFMULTILINEREGEX), 
+                                            getPropAsBoolean(props, ALLOWNL));
         LogEntry log = null;
         String dtgFormat = "HH:mm:ss";
         if ((props.get(TARGETDTG) != null) && (props.get(TARGETDTG).length() > 0))
@@ -701,6 +853,7 @@ public class LogGenerator
         catch (Exception err)
         {
             System.out.println ("oh")
+            System.out.println (err)
         }
     }
 
