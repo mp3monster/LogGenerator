@@ -77,6 +77,7 @@ public class LogGenerator
     final static String PROPFILENAMEDEFAULT = "tool.properties";
 
     private boolean verbose = false; // allows us to pretty print all the API calls if necessary
+    private static boolean debug = false; // these log messages are for debugging only
 
     private Logger juLogger = null;
 
@@ -98,7 +99,7 @@ public class LogGenerator
         public String logLevel = defaultLogLevel; // string representing the log level
         public String process = defaultProcess; // presents the process name or thread
         public String location = defaultLocation; // class path etc
-        public String message = null; // core message
+        public String message = ""; // core message
 
         /**
          * Used for inspacting the log values held
@@ -210,20 +211,28 @@ public class LogGenerator
 
         String output = null;
 
+        if (log == null)
+        {
+            if (debug) {System.out.println ("logToString - no log object" );}
+            return "";
+        }
+
         if (outTemplate != null)
         {
-                output = new String(outTemplate);
+            output = new String(outTemplate);
         }
         else
         {
             output = TIME + separator + MESSAGE;
         }
 
+        if (debug) {System.out.println ("logToString>"+iterCount + "<>" + counter + "<>" + output + "<>" + dtgFormat + "<\n log>   " + log +"<----------" );}
+
         if (output.indexOf (TIME) > -1)
         {
             DateTimeFormatter dtf = DateTimeFormatter.ofPattern(dtgFormat);  
             LocalDateTime now = LocalDateTime.now();
-            if (verbose) {System.out.println (TIME + " == " + now.format(dtf));}
+            if (debug) {System.out.println (TIME + " == " + now.format(dtf));}
             output = output.replace(TIME, now.format(dtf));
         }
 
@@ -286,18 +295,53 @@ public class LogGenerator
         return output;
     }
 
+    static String displayTokens(StringTokenizer tokens)
+    {
+        String output = "";
+        int elementCtr = 1;
+
+        if (tokens == null)
+            {return "tokens is null object"}
+
+        while (tokens.hasMoreElements())
+        {
+            output = output + "elem " + elementCtr + ">" + (String)tokens.nextElement() + "<; ";
+            if (false) // if the token string should be multiline set to true
+            {output = output + "\n"}
+
+            elementCtr++;
+        }
+
+        return output;
+    }
+
     static LogEntry createLogEntry (String line, String[] formatArray, String separator, boolean verbose)
     {
         LogEntry aLogEntry = new LogEntry();
+
+        if ((line == null) || (line.length() == 0))
+        {
+            if (verbose) {System.out.println ("createLogEntry - empty line");} 
+            return null;
+        }
+
         StringTokenizer st = new StringTokenizer(line, separator); // why does it fail when we pass in the separator
 
         int fmtIdx = 0;
         String element = null;
         boolean valueSet = false;
+        if (debug) 
+        {
+            System.out.println ("createLogEntry token count>" + st.countTokens());
+            System.out.println ("createLogEntry Line>" + line + "<\n"+displayTokens(st)+"<--");
+        }
+
 
         while (st.hasMoreElements())
         {
             element = (String)st.nextElement();
+
+            if (debug) {System.out.println ("createLogEntry Line>" + fmtIdx + "< >" + formatArray.length+"<" + " " + valueSet);}                
 
             while ((fmtIdx < formatArray.length) && (!valueSet))
             {
@@ -312,6 +356,7 @@ public class LogGenerator
                     else
                     {
                         // to convert date time to offset
+                        if (verbose) {System.out.println ("createLogEntry - need to convert to offset");}                        
                     }
                 }
                 else if (formatArray[fmtIdx].equals (LOGLEVEL))
@@ -329,6 +374,7 @@ public class LogGenerator
                 else if (formatArray[fmtIdx].equals (MESSAGE))
                 {
                     aLogEntry.message = element;
+
                     while (st.hasMoreElements())
                     {
                         aLogEntry.message = aLogEntry.message + separator + st.nextElement();
@@ -347,12 +393,13 @@ public class LogGenerator
                     if (verbose) {System.out.println ("Unrecognized formatter code : " + formatArray[fmtIdx]);}
                 }       
                 fmtIdx++;       
+
             }
             valueSet = false;
             
+        }
             if (verbose){System.out.println ("entry ==>" + aLogEntry.toString());}
             return aLogEntry;
-        }
     }
 
     static String mergeToString (ArrayList<String> staging, boolean verbose = false, boolean allowNL = false)
@@ -364,12 +411,12 @@ public class LogGenerator
         {
             if (mergeStr == null)
             {
-                if (verbose){System.out.println ("mergeToString start string");};
+                if (debug){System.out.println ("mergeToString start string");};
                 mergeStr = iter.next();
             }
             else
             {
-                if (verbose){System.out.println ("mergeToString EXTEND string");};
+                if (debug){System.out.println ("mergeToString EXTEND string");};
                 mergeStr = mergeStr + "\n" + iter.next();
             }
         }
@@ -379,13 +426,15 @@ public class LogGenerator
             mergeStr = mergeStr.replace ('\\n', '\n');
         }
 
-        if (verbose){System.out.println ("mergeToString result >>>>"+mergeStr+"<<<<");}
+        if (debug){System.out.println ("mergeToString result >>>>"+mergeStr+"<<<<");}
         return mergeStr;
     }
 
     static ArrayList<LogEntry> simpleRead (BufferedReader sourceReader, String separator, String[] formatArray, boolean verbose, boolean allowNL)
     {
         ArrayList<LogEntry> lines = new ArrayList<LogEntry> ();
+
+        if (verbose){System.out.println ("simpleRead>"+separator+"<\n" + formatArray+ "\n" + allowNL);}
 
         String line = sourceReader.readLine();
         while (line != null)
@@ -394,7 +443,16 @@ public class LogGenerator
             {
                 line = line.replace ('\\n', '\n');
             }    
-            lines.add(createLogEntry (line, formatArray, separator, verbose));
+            LogEntry log = createLogEntry (line, formatArray, separator, verbose);
+
+            if (log != null)
+            {
+                lines.add(log);
+            }
+            else
+            {
+                if (verbose){System.out.println ("simpleRead rec'd null line entry - ignoring");}
+            }
             line = sourceReader.readLine();
         }      
 
@@ -423,24 +481,34 @@ public class LogGenerator
 
             if (foundNewLogLine)
             {
-                if (verbose){println ("new line identified, staging is " + staging.size());}
+                if (debug){println ("new line identified, staging is " + staging.size());}
                 
                 if (!staging.isEmpty())
                 {
-                    lines.add (createLogEntry (mergeToString (staging, verbose, allowNL), formatArray, separator, verbose));
+                    LogEntry log = createLogEntry (mergeToString (staging, verbose, allowNL), formatArray, separator, verbose);
+                    if (log != null)
+                    {
+                        lines.add (log);
+                        if (verbose){System.out.println ("multiLineRead - added log");}
+                    }
+                    else
+                    {
+                        if (verbose){System.out.println ("multiLineRead - rec'd a null log entry ignoring");}
+
+                    }
 
                     staging.clear();
                 }
 
                 staging.add(line);
 
-                if (verbose){System.out.println ("adding (1)>"+line+"< to staging");}
+                if (debug){System.out.println ("adding (1)>"+line+"< to staging");}
 
             }
             else
             {
                 staging.add(line);
-                if (verbose){System.out.println ("adding (2)>"+line+"< to staging")};
+                if (debug){System.out.println ("adding (2)>"+line+"< to staging")};
             }
 
             line = sourceReader.readLine();
@@ -467,12 +535,15 @@ public class LogGenerator
 
         BufferedReader sourceReader = new BufferedReader(new FileReader(source));  //creates a buffering character input stream  
         ArrayList<LogEntry> lines = null;
+
         String[] formatArray = format.split (" ");
         for (int idx = 0; idx < formatArray.length; idx++)
         {
             formatArray[idx] = formatArray[idx].trim();
         }
 
+
+        if (verbose){System.out.println ("multiline="+multiLineREGEX)}
         if (multiLineREGEX == null)
         {
             lines = simpleRead (sourceReader, separator, formatArray, verbose, allowNL);
@@ -564,10 +635,12 @@ public class LogGenerator
             if ((sourceSeparator == null) || (sourceSeparator.size() == 0))
             {
                 props.put (SOURCESEPARATOR, " ");
+                sourceSeparator = props.get (SOURCESEPARATOR);
             }
             if ((targetSeparator == null) || (targetSeparator.size() == 0))
             {
                 props.put (TARGETSEPARATOR, " ");
+                targetSeparator = props.get (TARGETSEPARATOR);
             }
 
             if (sourceFilename != null)
@@ -646,6 +719,10 @@ public class LogGenerator
                                             verbose, 
                                             props.get(FIRSTOFMULTILINEREGEX), 
                                             getPropAsBoolean(props, ALLOWNL));
+
+        if (verbose) {System.out.println ("Logs now loaded");}
+
+
         LogEntry log = null;
         String dtgFormat = "HH:mm:ss";
         if ((props.get(TARGETDTG) != null) && (props.get(TARGETDTG).length() > 0))
@@ -778,7 +855,7 @@ public class LogGenerator
                             if (verbose) {System.out.println ("about to fire Java Util Logging ("+toJULLevel(log.logLevel, props)+") " + log.message);}
                             try 
                             {
-                                juLogger.logp (toJULLevel(log.logLevel, props), log.location,"", output);
+                                juLogger.log (toJULLevel(log.logLevel, props), log.location,"", output);
                             }
                             catch (Exception err)
                             {
@@ -854,10 +931,10 @@ public class LogGenerator
         {
             System.out.println ("oh")
             System.out.println (err)
+            System.out.println (err.getStackTrace().toString())
         }
     }
 
 
 
  //LogGenerator().core(args);
-
