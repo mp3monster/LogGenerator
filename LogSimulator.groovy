@@ -855,7 +855,7 @@ public class LogGenerator
                             if (verbose) {System.out.println ("about to fire Java Util Logging ("+toJULLevel(log.logLevel, props)+") " + log.message);}
                             try 
                             {
-                                juLogger.log (toJULLevel(log.logLevel, props), log.location,"", output);
+                                juLogger.logp (toJULLevel(log.logLevel, props), log.location,"", output);
                             }
                             catch (Exception err)
                             {
