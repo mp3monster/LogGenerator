@@ -81,10 +81,28 @@ public class LogGenerator
 
     private Logger juLogger = null;
 
-
+// XXXXX
     class LogSimulatorException extends Exception
     {
     }
+
+public interface RecordLogEvent
+{
+    public initialize (Properties props, boolean verbose);
+
+    public writeLogEntry(String entry);
+}
+
+ class LogToConsole implements RecordLogEvent
+ {
+    public initialize (Properties props, boolean verbose)    { }
+
+    public writeLogEntry(String entry)
+    {
+        System.out.println (entry);
+    }
+ }
+
 
    /**
     * This class holds the parsed log entry to be used
@@ -581,6 +599,9 @@ public class LogGenerator
     {
         System.out.println ("Starting ...");
 
+HashMap<int, RecordLogEvent> eventRecorders = new HashMap<int, RecordLogEvent>();
+eventRecorders.put(CONSOLEOUTPUT, new LogToConsole());
+
         String propFilename = PROPFILENAMEDEFAULT;
         String sourceFilename = null;
         Properties props = new Properties();
@@ -746,6 +767,8 @@ public class LogGenerator
             }
         }
 
+        int outputType = getOutputType(props, verbose);
+
         try
         {
             while (loopCount < loopTotal)
@@ -769,10 +792,12 @@ public class LogGenerator
                     String output =  logToString(log, dtgFormat, separator,  props.get(TARGETFORMAT),  verbose, loopCount, lineCount);
                     String iterCount = "";
 
-                    switch(getOutputType(props, verbose)) 
+                    switch(outputType) 
                     {
                         case CONSOLEOUTPUT:
-                            if (verbose) {System.out.println ("Console:" + output);}
+                            //if (verbose) {System.out.println ("Console:" + output);}
+                            eventRecorders.get(outputType).writeLogEntry(output);
+
                         break
 
                         case FILEOUTPUT: 
