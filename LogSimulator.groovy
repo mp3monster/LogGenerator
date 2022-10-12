@@ -39,6 +39,7 @@ public class LogGenerator
     final static String TARGETURL = "TARGETURL";
     final static String SOURCEDTG = "SOURCEDTG";
     final static String OUTTYPE = "OUTPUTTYPE";
+    final static String CUSTOMOUTTYPE = "CUSTOMOUTPUT";
     final static String DEFAULTLOGLEVEL = "DEFAULT-LOGLEVEL";
     final static String ACCELERATOR = "ACCELERATEBY";
     final static String CONSOLE = "console";
@@ -56,10 +57,12 @@ public class LogGenerator
     final static String SYSSTDOUT="STDOUT";
     final static int SYSERR = 6;
     final static String SYSERROUT="ERROUT";
+    final static int CUSTOM = 7;
+    final static String CUSTOMOUT="CUSTOM";
     final static String ALLOWNL="ALLOWNL";
-    final static String FIRSTOFMULTILINEREGEX="FIRSTOFMULTILINEREGEX"
+    final static String FIRSTOFMULTILINEREGEX="FIRSTOFMULTILINEREGEX";
 
-
+def customerOutputter = null;
 
     final static String DEFAULTLOC= "DEFAULT-LOCATION";
     final static String DEFAULTPROC= "DEFAULT-PROCESS";
@@ -81,10 +84,6 @@ public class LogGenerator
 
     private Logger juLogger = null;
 
-// XXXXX
-    class LogSimulatorException extends Exception
-    {
-    }
 
 public interface RecordLogEvent
 {
@@ -210,8 +209,12 @@ public interface RecordLogEvent
             else if (propOut.equalsIgnoreCase(SYSERROUT))
             {
                 outType = SYSERR;
-            }                       
-            else
+            }
+            else if (propOut.equalsIgnoreCase(CUSTOMOUT))
+            {
+                outType = CUSTOM;
+            }                  
+           else
             {
                 if (verbose){System.out.println("Unknown output type :" + props.get(OUTTYPE));}
             }        
@@ -727,7 +730,32 @@ eventRecorders.put(CONSOLEOUTPUT, new LogToConsole());
             }
         }
 
-        
+        int outputType = getOutputType(props, verbose);
+
+        //see if the custom outputtype is set
+        if (outputType == CUSTOM)
+        {
+            String outputImpPath = null;
+            try
+            {
+                if (verbose) {System.out.println ("customer outputter requested");}
+                outputImpPath = props.get(CUSTOMOUTTYPE).trim();
+                customerOutputter = null;
+
+                if (verbose) {System.out.println ("customer outputter loading - " + outputImpPath);}
+                Class instanceClass = Class.forName(outputImpPath);
+                if (verbose) {System.out.println ("class outputter is - " + instanceClass.getName());}
+                RecordLogEvent outputterInstance = instanceClass.newInstance();
+                outputterInstance.initialize(props, verbose);
+                eventRecorders.put(CUSTOM, outputterInstance);
+
+            }
+            catch (Exception err)
+            {
+                System.out.println ("Error trying to prepare custom output type: \n" + err.toString());
+                System.exit(-1);
+            }
+        }
 
         // initialize the default values
         LogEntry.defaultLocation = props.get(DEFAULTLOC, "");
@@ -767,7 +795,6 @@ eventRecorders.put(CONSOLEOUTPUT, new LogToConsole());
             }
         }
 
-        int outputType = getOutputType(props, verbose);
 
         try
         {
@@ -795,8 +822,7 @@ eventRecorders.put(CONSOLEOUTPUT, new LogToConsole());
                     switch(outputType) 
                     {
                         case CONSOLEOUTPUT:
-                            //if (verbose) {System.out.println ("Console:" + output);}
-                            eventRecorders.get(outputType).writeLogEntry(output);
+                           System.out.println ("Console:" + output);
 
                         break
 
@@ -895,7 +921,12 @@ eventRecorders.put(CONSOLEOUTPUT, new LogToConsole());
 
                         case SYSERR:
                             System.err.println (output);
-                        break;                
+                        break;      
+
+                        case CUSTOM:
+                            eventRecorders.get(outputType).writeLogEntry(output);
+
+                        break
 
                         default:
                             if (verbose) {System.out.println ("defaulted==>" + getOutputType(props, verbose));}
