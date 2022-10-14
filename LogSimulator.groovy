@@ -97,6 +97,8 @@ public interface RecordLogEvent
     public initialize (Properties props, boolean verbose);
 
     public writeLogEntry(String entry);
+
+    public clearDown();
 }
 
 class LogToConsole implements RecordLogEvent
@@ -106,6 +108,10 @@ class LogToConsole implements RecordLogEvent
     public writeLogEntry(String entry)
     {
         System.out.println (entry);
+    }
+
+    public clearDown() {
+        // nothing to do here
     }
 }
 
@@ -994,24 +1000,29 @@ class LogToConsole implements RecordLogEvent
                 if (verbose) {System.out.println ("No clear down needed");}
         }
 
+        if (eventRecorders.get(outputType) != null)
+        {
+            eventRecorders.get(outputType).clearDown();
+        }
+
+
         System.exit(0);
     }
 }
-    public static void main (String[] args)
-    {
-        try{
-            new LogGenerator().core(args); 
-            System.out.println ("bye")
 
-        }
-        catch (Exception err)
-        {
-            System.out.println ("oh")
-            System.out.println (err)
-            System.out.println (err.getStackTrace().toString())
-        }
+
+public static void main (String[] args)
+{
+    try{
+        new LogGenerator().core(args); 
+        System.out.println ("bye")
+
     }
+    catch (Exception err)
+    {
+        System.out.println ("oh")
+        System.out.println (err)
+        System.out.println (err.getStackTrace().toString())
+    }
+}
 
-
-
- //LogGenerator().core(args);

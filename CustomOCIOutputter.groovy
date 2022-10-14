@@ -28,6 +28,9 @@ class CustomOCIOutputter implements LogGenerator.RecordLogEvent
   private static final String AGENTNAME = "AGENTNAME";
   private static final String BATCHSIZE = "BATCHSIZE";
   private static final String LOGICID = "LogOCID";
+  private static final String OCICONFIGFILE = "OCICONFIGFILE";
+  private static final String PROPFILEGROUP = "PROPFILEGROUP";
+
 
   private String logOCID = null;
   private LoggingClient client = null;
@@ -36,6 +39,7 @@ class CustomOCIOutputter implements LogGenerator.RecordLogEvent
   private boolean verbose = false
   private int batchSize = 0;
   private ArrayList batch = null;
+  private String profileGroup = "DEFAULT";
 
   private log (String msg, boolean out=this.verbose)
   {
@@ -61,6 +65,13 @@ class CustomOCIOutputter implements LogGenerator.RecordLogEvent
       log ("log id:"+agentName);
     }
 
+    String prfileGrp = props.get(PROPFILEGROUP);
+    if ((prfileGrp != null) && (prfileGrp.trim().length() > 0))
+    {
+      profileGroup = prfileGrp;
+      log ("profile group id:"+prfileGrp);
+    }
+
     String batchSze = props.get(BATCHSIZE);
     if ((batchSze != null) && (batchSze.trim().length() > 0 ))
     {
@@ -75,7 +86,7 @@ class CustomOCIOutputter implements LogGenerator.RecordLogEvent
       }
     }
 
-    String OCIconfigLocation = props.get("OCIConfigFile");
+    String OCIconfigLocation = props.get(OCICONFIGFILE);
     if ((OCIconfigLocation == null) || (OCIconfigLocation.trim().length() == 0))
     {
         log("Using default config for OCI properties - " + ConfigFileReader.DEFAULT_FILE_PATH);
@@ -84,7 +95,7 @@ class CustomOCIOutputter implements LogGenerator.RecordLogEvent
     else
     {
       OCIconfigLocation = OCIconfigLocation.trim();
-      configFile = ConfigFileReader.parse(OCIconfigLocation, "DEFAULT");
+      configFile = ConfigFileReader.parse(OCIconfigLocation, profileGroup);
     }
     final AuthenticationDetailsProvider provider = new ConfigFileAuthenticationDetailsProvider(configFile);
 
@@ -155,4 +166,35 @@ class CustomOCIOutputter implements LogGenerator.RecordLogEvent
     }
   }
 
- }
+
+  public clearDown()
+  {
+    log ("OCI Outputter - clearing down")
+    if ((batch != null) && (batch.size() > 0))
+    {
+      putLogsDetails = PutLogsDetails.builder()
+      .specversion("1.0")
+        .logEntryBatches(new ArrayList<>(Arrays.asList(LogEntryBatch.builder()
+            .entries(new ArrayList<>(Arrays.asList(LogEntry.builder()
+                .data(entry)
+                .id(logOCID)
+                .time(timestamp).build())))
+            .source(agentName)
+            .type(AGENTTYPE)
+            .subject(logSubject)
+            .defaultlogentrytime(timestamp).build()))).build();
+      batch.clear();
+
+      PutLogsRequest putLogsRequest = PutLogsRequest.builder()
+        .logId(logOCID)
+        .putLogsDetails(putLogsDetails)
+        .timestampOpcAgentProcessing(timestamp)
+        .build();
+
+      /* Send request to the Client */
+      PutLogsResponse response = client.putLogs(putLogsRequest);
+      
+      if (verbose) {System.out.println ("OCI Outputter:" + response.toString());}
+    }
+  }
+}
