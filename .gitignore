@@ -5,3 +5,7 @@ logSourceSimulator-book.bat
 *.class
 
 *.tmp
+
+lib/
+
+*.zip
