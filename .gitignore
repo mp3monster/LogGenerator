@@ -9,3 +9,7 @@ logSourceSimulator-book.bat
 lib/
 
 *.zip
+
+oci.properties
+
+*.pem
