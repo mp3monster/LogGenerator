@@ -62,7 +62,7 @@ public class LogGenerator
     final static String ALLOWNL="ALLOWNL";
     final static String FIRSTOFMULTILINEREGEX="FIRSTOFMULTILINEREGEX";
 
-def customerOutputter = null;
+    def customerOutputter = null;
 
     final static String DEFAULTLOC= "DEFAULT-LOCATION";
     final static String DEFAULTPROC= "DEFAULT-PROCESS";
@@ -84,15 +84,22 @@ def customerOutputter = null;
 
     private Logger juLogger = null;
 
-
+/*
+ * This defines the interface to be used by any custom log output implementations
+ */
 public interface RecordLogEvent
 {
+    /*
+     * Sets the outputter up with the loadded properties files etc. The implementation needs
+     * to build all the necessary resources ready so that the execution of the outputs can run 
+     * to the simulated timing
+     */
     public initialize (Properties props, boolean verbose);
 
     public writeLogEntry(String entry);
 }
 
- class LogToConsole implements RecordLogEvent
+class LogToConsole implements RecordLogEvent
  {
     public initialize (Properties props, boolean verbose)    { }
 
@@ -100,7 +107,7 @@ public interface RecordLogEvent
     {
         System.out.println (entry);
     }
- }
+}
 
 
    /**
@@ -127,8 +134,12 @@ public interface RecordLogEvent
         }
     }
 
+    /*
+     *Translates the configuration file to the Java Util level object.
+     */
     static Level toJULLevel (String level, Properties props)
     {
+
         if ((level == null) || (level.length() == 0))
         {
             if ((props.get(DEFAULTLOGLEVEL) != null) || (props.get(DEFAULTLOGLEVEL).length() > 0))
@@ -316,6 +327,9 @@ public interface RecordLogEvent
         return output;
     }
 
+    /*
+     * 
+     */
     static String displayTokens(StringTokenizer tokens)
     {
         String output = "";
@@ -328,7 +342,7 @@ public interface RecordLogEvent
         {
             output = output + "elem " + elementCtr + ">" + (String)tokens.nextElement() + "<; ";
             if (false) // if the token string should be multiline set to true
-            {output = output + "\n"}
+             {output = output + "\n"}
 
             elementCtr++;
         }
@@ -336,6 +350,9 @@ public interface RecordLogEvent
         return output;
     }
 
+    /*
+     * 
+     */
     static LogEntry createLogEntry (String line, String[] formatArray, String separator, boolean verbose)
     {
         LogEntry aLogEntry = new LogEntry();
@@ -423,6 +440,7 @@ public interface RecordLogEvent
             return aLogEntry;
     }
 
+
     static String mergeToString (ArrayList<String> staging, boolean verbose = false, boolean allowNL = false)
     {
         Iterator iter = staging.iterator();
@@ -450,6 +468,7 @@ public interface RecordLogEvent
         if (debug){System.out.println ("mergeToString result >>>>"+mergeStr+"<<<<");}
         return mergeStr;
     }
+
 
     static ArrayList<LogEntry> simpleRead (BufferedReader sourceReader, String separator, String[] formatArray, boolean verbose, boolean allowNL)
     {
@@ -479,6 +498,7 @@ public interface RecordLogEvent
 
         return lines;  
     }
+
 
     static ArrayList<LogEntry> multiLineRead (BufferedReader sourceReader, 
                                                 String separator, 
@@ -577,6 +597,7 @@ public interface RecordLogEvent
         return lines;
     }
 
+
     public boolean getPropAsBoolean (Properties props, String propName)
     {
         boolean property = false;
@@ -602,8 +623,8 @@ public interface RecordLogEvent
     {
         System.out.println ("Starting ...");
 
-HashMap<int, RecordLogEvent> eventRecorders = new HashMap<int, RecordLogEvent>();
-eventRecorders.put(CONSOLEOUTPUT, new LogToConsole());
+        HashMap<int, RecordLogEvent> eventRecorders = new HashMap<int, RecordLogEvent>();
+        //eventRecorders.put(CONSOLEOUTPUT, new LogToConsole());
 
         String propFilename = PROPFILENAMEDEFAULT;
         String sourceFilename = null;
