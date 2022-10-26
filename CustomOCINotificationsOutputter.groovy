@@ -24,8 +24,6 @@ import java.util.Arrays;
 class CustomOCINotificationsOutputter implements LogGenerator.RecordLogEvent
 {
 
-  private static final String AGENTTYPE="LOGSIM";
-  private static final String AGENTNAME = "AGENTNAME";
   private static final String BATCHSIZE = "BATCHSIZE";
   private static final String CHANNELTOPICOCID = "CHANNELTOPICOCID";
   private static final String REGION = "REGION";
@@ -35,7 +33,6 @@ class CustomOCINotificationsOutputter implements LogGenerator.RecordLogEvent
 
 
   private NotificationDataPlaneClient client = null;
-  private String agentName = "OCINotificationGenerator";
   private String notificationTopicId = null;
   private String region = null;
   private String compartmentId = null;
@@ -60,13 +57,6 @@ public initialize (Properties props, boolean verbose)
   this.verbose = verbose;
   log("initializing OCI Notifications Outputter ....");
   ConfigFileReader.ConfigFile configFile = null;
-
-  String name = props.get(AGENTNAME);
-  if ((name != null) && (name.trim().length() > 0))
-  {
-    agentName = name;
-    log ("log id:"+agentName);
-  }
 
   String prfileGrp = props.get(PROPFILEGROUP);
   if ((prfileGrp != null) && (prfileGrp.trim().length() > 0))
