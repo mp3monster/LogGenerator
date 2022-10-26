@@ -6,11 +6,19 @@ This is an optional addition to the LogSimulator. It provides the means to send 
 
 | Output Type configuration value | Description                                                  |
 | ------------------------------- | ------------------------------------------------------------ |
-| LogOCID                         | The OCID for the Log that has been configured.               |
+| TOPICOCID                       | The OCID for the Notifications topic that has been configured.               |
+| REGION                          | This is the name of the OCI Region that the Topic has been configure in e.g. us-ashburn-1 |
 | BATCHSIZE                       | This sets the number of events to send to OCI at a time. If unset, then each log event is individually sent to OCI |
 | OCICONFIGFILE                   | This tells the custom outputter where to find the configuration file that contains the credentials to access OCI. |
 | PROPFILEGROUP                   | This tells OCI SDK which profile group to take from the configuration file. If unset then the [DEFAULT] group is used. |
 
+#### Example Properties settings:
+> OUTPUTTYPE=CUSTOM
+> CUSTOMOUTPUT=CustomOCINotificationsOutputter
+> #BATCHLOGS=5
+> TOPICOCID=ocid1.onstopic.oc1.iad.aaaaaaaatbbbbbbbbbbbbbbbbbbbbccccccccccccccccvsntijpra
+> OCICONFIGFILE=oci.properties
+> REGION=us-ashburn-1
 ## OCI Dependencies
 
 For this plugin we need several additional pieces to be configured and deployed. These are:
@@ -27,7 +35,7 @@ The OCI Java SDK can be downloaded from here. The provided/example script assume
 
 The SDK looks to load a properties file to get the necessary credentials to access OCI. This includes a suitable certificate, fingerprint, and user OCID. This should look something like this:
 
-> [DEFAUL thisT]
+> [DEFAULT]
 >
 > user=ocid1.user.oc1..aaaaaaaajgyiqcmpi4dezdfjk;ghdfjbfhjgbhfjghfjghk5u2d2gwf2bpsenslwpfwq
 >
