@@ -22,9 +22,9 @@ The following custom Outputters have been included but can be removed if unwante
 
 | Output Type configuration value                            | Description                                                  |
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
-| [CustomConsoleOutputter](./docs/CustomConsoleOutputter.md) | This is a very simple outputter implementation that pushes the output to to the console. |
-| [CustomOCIOutputter](./docs/CustomOCIoutputter.md)         | This takes the output payload and directs it to OCI Logging. |
-| [CustomOCINotificationsOutputter](./docs/CustomOCINotificationsOutputter.md) | Generate and send events to OCI Notifications |
+| [CustomConsoleOutputter](./CustomConsoleOutputter.md) | This is a very simple outputter implementation that pushes the output to to the console. |
+| [CustomOCIOutputter](./CustomOCIoutputter.md)         | This takes the output payload and directs it to OCI Logging. |
+| [CustomOCINotificationsOutputter](./CustomOCINotificationsOutputter.md) | Generate and send events to OCI Notifications |
 
   
 The properties file drives all the different possible behaviours. The following table describes each of the properties and when they are needed.
