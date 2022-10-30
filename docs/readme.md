@@ -23,7 +23,7 @@ The following custom Outputters have been included but can be removed if unwante
 | Output Type configuration value                            | Description                                                  |
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | [CustomConsoleOutputter](./CustomConsoleOutputter.md) | This is a very simple outputter implementation that pushes the output to to the console. |
-| [CustomOCIOutputter](./CustomOCIoutputter.md)         | This takes the output payload and directs it to OCI Logging. |
+| [CustomOCIOutputter](./CustomOCIOutputter.md)         | This takes the output payload and directs it to OCI Logging. |
 | [CustomOCINotificationsOutputter](./CustomOCINotificationsOutputter.md) | Generate and send events to OCI Notifications |
 
   
