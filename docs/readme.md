@@ -1,5 +1,32 @@
 The tool is executed with the command: *groovy logSourceSimulator.groovy <properties file>* for example: groovy *logSourceSimulator.groovy testConfigurations\\tool.properties*
 
+  ## Output Types
+
+The following table describes the output type options available:
+
+| Output Type configuration value | Description                                                  |
+| ------------------------------- | ------------------------------------------------------------ |
+| file                            | Generates a file based on the other attributes               |
+| HTTP                            | Will make an HTTP POST to the configure URL                  |
+| TCP                             | Opens a socket and sends TCP traffic                         |
+| JUL                             | Java Logging with the Java Native logging mechanism which can be controlled through the logging configuration options |
+| STDOUT                          | Sends to Standard Out (console unless overridden by configurations) |
+| ERROUT                          | Sends to Standard Error (console unless overridden by configurations) |
+| CUSTOM                          | Will teel the utility to load the custom outputter implementation specified |
+
+
+
+## Custom Outputters
+
+The following custom Outputters have been included but can be removed if unwanted. The outputter name links to the documentation describing how to setup and use that outputter.
+
+| Output Type configuration value                            | Description                                                  |
+| ---------------------------------------------------------- | ------------------------------------------------------------ |
+| [CustomConsoleOutputter](./docs/CustomConsoleOutputter.md) | This is a very simple outputter implementation that pushes the output to to the console. |
+| [CustomOCIOutputter](./docs/CustomOCIoutputter.md)         | This takes the output payload and directs it to OCI Logging. |
+| [CustomOCINotificationsOutputter](./docs/CustomOCINotificationsOutputter.md) | Generate and send events to OCI Notifications |
+
+  
 The properties file drives all the different possible behaviours. The following table describes each of the properties and when they are needed.
 
 
@@ -44,28 +71,3 @@ The properties file drives all the different possible behaviours. The following 
 
 When consuming a log file - it is necessary for there different elements to have a consistent separator.  The separator to use can be defined in the properties file.
 
-## Output Types
-
-The following table describes the output type options available:
-
-| Output Type configuration value | Description                                                  |
-| ------------------------------- | ------------------------------------------------------------ |
-| file                            | Generates a file based on the other attributes               |
-| HTTP                            | Will make an HTTP POST to the configure URL                  |
-| TCP                             | Opens a socket and sends TCP traffic                         |
-| JUL                             | Java Logging with the Java Native logging mechanism which can be controlled through the logging configuration options |
-| STDOUT                          | Sends to Standard Out (console unless overridden by configurations) |
-| ERROUT                          | Sends to Standard Error (console unless overridden by configurations) |
-| CUSTOM                          | Will teel the utility to load the custom outputter implementation specified |
-
-
-
-## Custom Outputters
-
-The following custom Outputters have been included but can be removed if unwanted. The outputter name links to the documentation describing how to setup and use that outputter.
-
-| Output Type configuration value                            | Description                                                  |
-| ---------------------------------------------------------- | ------------------------------------------------------------ |
-| [CustomConsoleOutputter](./docs/CustomConsoleOutputter.md) | This is a very simple outputter implementation that pushes the output to to the console. |
-| [CustomOCIOutputter](./docs/CustomOCIoutputter.md)         | This takes the output payload and directs it to OCI Logging. |
-| [CustomOCINotificationsOutputter](./docs/CustomOCINotificationsOutputter.md) | Generate and send events to OCI Notifications |
