@@ -5,17 +5,17 @@
  {
   public CustomConsoleOutputter(){}
 
-    public initialize (Properties props, boolean verbose)    
+    public void initialize (Properties props, boolean verbose)    
     { 
       System.out.println ("initializing custom console outputter ....")
     }
 
-    public writeLogEntry(String entry)
+    public void writeLogEntry(String entry)
     {
         System.out.println ("Custom console logger event - " + entry);
     }
 
-    public clearDown ()
+    public void clearDown ()
     {
       System.out.println ("...clearing down custom console outputter")
     }

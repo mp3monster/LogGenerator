@@ -50,7 +50,7 @@ class CustomOCIOutputter implements LogGenerator.RecordLogEvent
   * prepare activity by getting the control parameters ready
   * create client object ready to use
   */
-  public initialize (Properties props, boolean verbose)    
+  public void initialize (Properties props, boolean verbose)    
   {
     this.verbose = verbose;
     log("initializing OCIOutputter ....");
@@ -109,7 +109,7 @@ class CustomOCIOutputter implements LogGenerator.RecordLogEvent
   * Take the provided log entry and either add it to the batch if a batch size is set 
   * or send it immediately to OCI
   */
-  public writeLogEntry(String entry)
+  public void writeLogEntry(String entry)
   {
     PutLogsDetails putLogsDetails = null;
     Date timestamp = new Date();
@@ -167,7 +167,7 @@ class CustomOCIOutputter implements LogGenerator.RecordLogEvent
   }
 
 
-  public clearDown()
+  public void clearDown()
   {
     log ("OCI Outputter - clearing down")
     if ((batch != null) && (batch.size() > 0))

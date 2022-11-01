@@ -94,23 +94,23 @@ public interface RecordLogEvent
      * to build all the necessary resources ready so that the execution of the outputs can run 
      * to the simulated timing
      */
-    public initialize (Properties props, boolean verbose);
+    public void initialize (Properties props, boolean verbose);
 
-    public writeLogEntry(String entry);
+    public void writeLogEntry(String entry);
 
-    public clearDown();
+    public void clearDown();
 }
 
 class LogToConsole implements RecordLogEvent
  {
-    public initialize (Properties props, boolean verbose)    { }
+    public void initialize (Properties props, boolean verbose)    { }
 
-    public writeLogEntry(String entry)
+    public void writeLogEntry(String entry)
     {
         System.out.println (entry);
     }
 
-    public clearDown() {
+    public void clearDown() {
         // nothing to do here
     }
 }

@@ -9,9 +9,13 @@ import com.oracle.bmc.auth.ConfigFileAuthenticationDetailsProvider;
 import com.oracle.bmc.ons.NotificationDataPlaneClient;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.HashMap;
 import java.util.Date;
 import java.util.Arrays;
+import java.util.Properties;
+import java.time.format.DateTimeFormatter;  
+import java.time.LocalDateTime;
 
 /*
  * Implements the mechanism to communicate with OCI Logging
@@ -21,7 +25,8 @@ import java.util.Arrays;
  * Controls from this are loaded from the provided properties file
  * connection details to OCI come from a separate properties file
  */
-class CustomOCINotificationsOutputter implements LogGenerator.RecordLogEvent
+class CustomOCINotificationsOutputter 
+  implements LogGenerator.RecordLogEvent
 {
 
   private static final String BATCHSIZE = "BATCHSIZE";
@@ -37,14 +42,14 @@ class CustomOCINotificationsOutputter implements LogGenerator.RecordLogEvent
   private String region = null;
   private String compartmentId = null;
 
-  private boolean verbose = false
+  private boolean verbose = false;
   private int batchSize = 0;
   private ArrayList batch = null;
   private String profileGroup = "DEFAULT";
 
-  private log (String msg, boolean out=this.verbose)
+  private void log (String msg)
   {
-    if (out) {System.out.println (msg);}
+    if (verbose) {System.out.println (msg);}
   }
 
 
@@ -52,74 +57,85 @@ class CustomOCINotificationsOutputter implements LogGenerator.RecordLogEvent
   * prepare activity by getting the control parameters ready
   * create client object ready to use
   */
-public initialize (Properties props, boolean verbose)    
-{
-  this.verbose = verbose;
-  log("initializing OCI Notifications Outputter ....");
-  ConfigFileReader.ConfigFile configFile = null;
-
-  String prfileGrp = props.get(PROPFILEGROUP);
-  if ((prfileGrp != null) && (prfileGrp.trim().length() > 0))
+  public void initialize (Properties props, boolean verbose)    
   {
-    profileGroup = prfileGrp;
-    log ("profile group id:"+prfileGrp);
-  }
+    this.verbose = verbose;
+    log("initializing OCI Notifications Outputter ....");
+    ConfigFileReader.ConfigFile configFile = null;
 
-  batch = new ArrayList();
-  String batchSze = props.get(BATCHSIZE);
-  if ((batchSze != null) && (batchSze.trim().length() > 0 ))
-  {
+    String prfileGrp = props.getProperty(PROPFILEGROUP);
+    if ((prfileGrp != null) && (prfileGrp.trim().length() > 0))
+    {
+      profileGroup = prfileGrp;
+      log ("profile group id:"+prfileGrp);
+    }
+
+    batch = new ArrayList();
+    String batchSze = props.getProperty(BATCHSIZE);
+    if ((batchSze != null) && (batchSze.trim().length() > 0 ))
+    {
+      try
+      {
+        batchSize = Integer.valueOf(batchSze);
+      }
+      catch (NumberFormatException numErr)
+      {
+        log ("Failed to translate batch size default to no batch");
+      }
+    }
+
+    region = props.getProperty(REGION);
+    if ((region == null) || (region.trim().length() < 1))
+    {
+      log ("Region not configured");
+    }
+    else
+    {
+      region = region.trim();
+    }
+
+    String OCIconfigLocation = props.getProperty(OCICONFIGFILE);
     try
     {
-      batchSize = Integer.valueOf(batchSze);
+      if ((OCIconfigLocation == null) || (OCIconfigLocation.trim().length() == 0))
+      {
+        log("Using default config for OCI properties - " + ConfigFileReader.DEFAULT_FILE_PATH);
+        configFile = ConfigFileReader.parseDefault();
+      }
+      else
+      {
+        OCIconfigLocation = OCIconfigLocation.trim();
+        configFile = ConfigFileReader.parse(OCIconfigLocation, profileGroup);
+      }
     }
-    catch (NumberFormatException numErr)
+    catch (Exception err)
     {
-      log ("Failed to translate batch size default to no batch");
+        log ("Error loading the config file" + err.toString());
     }
+
+    final AuthenticationDetailsProvider provider = new ConfigFileAuthenticationDetailsProvider(configFile);
+
+    notificationTopicId = props.getProperty(TOPICID);
+    NotificationControlPlaneClient controlPlaneClient =  new NotificationControlPlaneClient(provider);
+    if ((notificationTopicId != null) && (notificationTopicId.trim().length() > 0))
+    {
+      log ("connecting to topic - " + notificationTopicId);
+      client = new NotificationDataPlaneClient(provider);
+      GetTopicRequest topicRequest =
+                  GetTopicRequest.builder().topicId(notificationTopicId).build();
+      client.setRegion(region);
+    }
+    else
+    {
+      log ("No topic set");
+    }
+
+    log ("... initialized OCI Notifications Outputter");
   }
 
-  region = props.get(REGION);
-  if ((region == null) || (region.trim().length() < 1))
-  {
-    log ("Region not configured")
-  }
-  else
-  {
-    region = region.trim();
-  }
-
-  String OCIconfigLocation = props.get(OCICONFIGFILE);
-  if ((OCIconfigLocation == null) || (OCIconfigLocation.trim().length() == 0))
-  {
-    log("Using default config for OCI properties - " + ConfigFileReader.DEFAULT_FILE_PATH);
-    configFile = ConfigFileReader.parseDefault();
-  }
-  else
-  {
-    OCIconfigLocation = OCIconfigLocation.trim();
-    configFile = ConfigFileReader.parse(OCIconfigLocation, profileGroup);
-  }
-  final AuthenticationDetailsProvider provider = new ConfigFileAuthenticationDetailsProvider(configFile);
-
-  notificationTopicId = props.get(TOPICID);
-  NotificationControlPlaneClient controlPlaneClient =  new NotificationControlPlaneClient(provider);
-  if ((notificationTopicId != null) && (notificationTopicId.trim().length() > 0))
-  {
-    log ("connecting to topic - " + notificationTopicId);
-    client = new NotificationDataPlaneClient(provider);
-    GetTopicRequest topicRequest =
-                GetTopicRequest.builder().topicId(notificationTopicId).build();
-    client.setRegion('us-ashburn-1');
-  }
-  else
-  {
-    log ("No topic set");
-  }
-
-  log ("... initialized OCI Notifications Outputter");
-}
-
+ /*
+  * Builds a compound output
+  */
   private String batchOutput (ArrayList batch)
   {
     String result = "";
@@ -136,7 +152,7 @@ public initialize (Properties props, boolean verbose)
   * Take the provided log entry and either add it to the batch if a batch size is set 
   * or send it immediately to OCI
   */
-  public writeLogEntry(String entry)
+  public void writeLogEntry(String entry)
   {
     batch.add(entry);
 
@@ -169,9 +185,9 @@ public initialize (Properties props, boolean verbose)
   }
 
 
-  public clearDown()
+  public void clearDown()
   {
-    if (batch.length() > 0)
+    if (batch.size() > 0)
     {
       MessageDetails messageDetails = MessageDetails.builder().body(batchOutput(batch)).build();
       PublishMessageRequest publishMessageRequest =
@@ -180,12 +196,64 @@ public initialize (Properties props, boolean verbose)
                       .messageDetails(messageDetails)
                       .build();
         
-      PublishMessageResponse respone = client.publishMessage(publishMessageRequest);
+      PublishMessageResponse response = client.publishMessage(publishMessageRequest);
       
       batch.clear();
       
-      if (verbose) {System.out.println ("OCI Notifications Outputter:" + response.toString());}      
+      log("OCI Notifications Outputter:" + response.toString());      
     }
-    log ("OCI Notifications Outputter - clearing down")
+    log ("OCI Notifications Outputter - clearing down");
+  }
+
+
+  /*
+  * Simple main function that drives the class to generate a simple log message
+  * To use this approach the environment needs the OCI Config file for the SDK
+  * Plus the following environment variables (shell set or export):
+  * TOPICOCID=ocid1.onstopic.oc1.iad.aaaaaaaatbbbbbbbbbbbbbbbbbbbqcccccccccccccccdddddddddddddddd
+  * OCICONFIGFILE=oci.properties
+  * REGION=us-ashburn-1
+  * CLASSPATH=./lib/*
+  *
+  * TOPCOCID is the OCID for the notification topic created
+  * REGION is the name of the Region in which the Topic has been defined
+  * CLASSPATH points to where the SDK lib folder is
+  *
+  * to run independently of the core LogGenerator features the line implements LogGenerator.RecordLogEvent needs to be commented out
+  * the command can then be run as 
+  */
+  public static void main (String[] args)
+  {
+    CustomOCINotificationsOutputter notificationsOut = new CustomOCINotificationsOutputter();
+    String dtgFormat = "HH:mm:ss";
+    Properties props = new Properties();
+    // to avoid needing the base classes we grab environment variables and set the properties that way
+    props.setProperty (BATCHSIZE, "1");
+    props.setProperty (TOPICID, System.getenv(TOPICID));
+    props.setProperty (REGION, System.getenv(REGION));
+    props.setProperty (OCICONFIGFILE, System.getenv(OCICONFIGFILE));
+
+    notificationsOut.initialize (props, false);
+
+    int index = 0;
+    DateTimeFormatter dtf = DateTimeFormatter.ofPattern(dtgFormat);  
+    LocalDateTime now = null;
+    try{
+      while (true)
+      {
+        now = LocalDateTime.now();
+        notificationsOut.writeLogEntry("Message " + index + " at " + now.format(dtf) + " sent from client app");
+        Thread.sleep (5000);
+        index++;
+      }
+    }
+    catch (Exception err)
+    {
+      System.out.println ("loop disturbed " + err.toString());
+    }
+
+    // if the loop becomes conditional then the following needs to be uncommented
+    //notificationsOut.clearDown();
+
   }
 }
