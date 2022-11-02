@@ -232,6 +232,7 @@ class CustomOCINotificationsOutputter
     props.setProperty (TOPICID, System.getenv(TOPICID));
     props.setProperty (REGION, System.getenv(REGION));
     props.setProperty (OCICONFIGFILE, System.getenv(OCICONFIGFILE));
+    boolean useJSONformat = (System.getenv("JSONFmt") != null);
 
     notificationsOut.initialize (props, false);
 
@@ -242,7 +243,17 @@ class CustomOCINotificationsOutputter
       while (true)
       {
         now = LocalDateTime.now();
-        notificationsOut.writeLogEntry("Message " + index + " at " + now.format(dtf) + " sent from client app");
+
+        if (useJSONformat)
+        {
+          //format for sending in JSON format
+          notificationsOut.writeLogEntry("{\"MessageNo\" : " + index + ", \"at\": " + "\""+ now.format(dtf) + "\", \"sent\" : \"from client app\"}");        
+        }
+        else
+        {
+          // format for a human readable message:
+          notificationsOut.writeLogEntry("Message " + index + " at " + now.format(dtf) + " sent from client app");
+        }
         Thread.sleep (5000);
         index++;
       }
