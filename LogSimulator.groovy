@@ -1,3 +1,4 @@
+
 import java.util.StringTokenizer;
 import java.time.format.DateTimeFormatter;  
 import java.time.LocalDateTime;    
@@ -84,6 +85,19 @@ public class LogGenerator
 
     private Logger juLogger = null;
 
+final static HashMap<String, Level> JULMAPPER = new HashMap<String, Level>() {{ put("WARNING",  Level.WARNING); 
+                                                                                put("WARN", Level.SEVERE);
+                                                                                put("SEVERE", Level.SEVERE);
+                                                                                put("ERROR", Level.SEVERE);
+                                                                                put("FATAL", Level.SEVERE);
+                                                                                put("INFO", Level.INFO);
+                                                                                put("INFORMATION", Level.INFO);
+                                                                                put("CONFIG", Level.CONFIG);
+                                                                                put("FINE", Level.FINE);
+                                                                                put("FINER", Level.FINER);
+                                                                                put("FINEST", Level.FINEST);
+                                                                                put("TRACE", Level.FINE);
+                                                                                }};
 /*
  * This defines the interface to be used by any custom log output implementations
  */
@@ -101,6 +115,9 @@ public interface RecordLogEvent
     public void clearDown();
 }
 
+/*
+ * This  defines the interface that the custom handlers need to implement.
+ */
 class LogToConsole implements RecordLogEvent
  {
     public void initialize (Properties props, boolean verbose)    { }
@@ -145,49 +162,17 @@ class LogToConsole implements RecordLogEvent
      */
     static Level toJULLevel (String level, Properties props)
     {
-
-        if ((level == null) || (level.length() == 0))
+        if (level == null)
         {
-            if ((props.get(DEFAULTLOGLEVEL) != null) || (props.get(DEFAULTLOGLEVEL).length() > 0))
-            {
-                level = props.get(DEFAULTLOGLEVEL);
-            }
-            else
-            {
-                return Level.INFO;
-            }
+            level = props.get(DEFAULTLOGLEVEL)
         }
-        
-        if (level.equalsIgnoreCase("SEVERE") || level.equalsIgnoreCase("ERROR") || level.equalsIgnoreCase("FATAL"))
+        try
         {
-            return Level.SEVERE;
+            return JULMAPPER.getOrDefault(level.toUpperCase(), Level.INFO);
         }
-        else if (level.equalsIgnoreCase("WARNING") || level.equalsIgnoreCase("WARN"))
+        catch (Exception err)
         {
-            return Level.WARNING;
-        }
-        else if (level.equalsIgnoreCase("INFO") || level.equalsIgnoreCase("INFORMATION"))
-        {
-            return Level.INFO;
-        }
-        else if (level.equalsIgnoreCase("CONFIG"))
-        {
-            return Level.CONFIG;
-        }
-        else if (level.equalsIgnoreCase("FINE") || level.equalsIgnoreCase("TRACE"))
-        {
-            return Level.FINE;
-        }
-        else if (level.equalsIgnoreCase("FINER"))
-        {
-            return Level.FINER;
-        }
-        else if (level.equalsIgnoreCase("FINEST"))
-        {
-            return Level.FINEST;
-        }
-        else
-        {
+            System.out.println ("caught error looking up JUL code");
             return Level.INFO;
         }
     }
