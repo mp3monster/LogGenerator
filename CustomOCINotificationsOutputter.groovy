@@ -234,7 +234,7 @@ class CustomOCINotificationsOutputter
     props.setProperty (OCICONFIGFILE, System.getenv(OCICONFIGFILE));
     boolean useJSONformat = (System.getenv("JSONFmt") != null);
 
-    notificationsOut.initialize (props, false);
+    notificationsOut.initialize (props, ((System.getenv("verbose") == null) || (System.getenv("verbose").trim().equalsIgnoreCase("true"))));
 
     int index = 0;
     DateTimeFormatter dtf = DateTimeFormatter.ofPattern(dtgFormat);  
