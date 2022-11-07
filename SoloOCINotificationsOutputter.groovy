@@ -22,8 +22,6 @@ import java.time.LocalDateTime;
  * underlying documentation on how this can be done is detailed at:
  * https://github.com/oracle/oci-java-sdk/blob/master/bmc-examples/src/main/java/NotificationExample.java
  *
- * Controls from this are loaded from the provided properties file
- * connection details to OCI come from a separate properties file
  */
 class SoloOCINotificationsOutputter 
 {
@@ -164,17 +162,11 @@ class SoloOCINotificationsOutputter
 
       MessageDetails messageDetails = new MessageDetails.Builder().body(body).build();
 
-    log ("message built");
-
-
       PublishMessageRequest publishMessageRequest =
               new PublishMessageRequest.Builder()
                       .topicId(notificationTopicId)
                       .messageDetails(messageDetails)
-                      .build();
-
-    log ("request built");
-        
+                      .build();        
 
       PublishMessageResponse response = client.publishMessage(publishMessageRequest);
       log ("OCI Notifications Outputter:" + response.toString());
@@ -184,6 +176,9 @@ class SoloOCINotificationsOutputter
   }
 
 
+  /*
+   * This will send the remaining events still being held and release any resources necessary
+   */
   public void clearDown()
   {
     if (batch.size() > 0)
@@ -259,7 +254,9 @@ class SoloOCINotificationsOutputter
     }
     catch (Exception err)
     {
-      System.out.println ("loop disturbed " + err.toString());
+      System.out.println ("loop disturbed " + err.getMessage());
+       err.printStackTrace();
+
     }
 
     // if the loop becomes conditional then the following needs to be uncommented
