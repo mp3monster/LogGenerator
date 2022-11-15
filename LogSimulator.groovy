@@ -67,7 +67,7 @@ public class LogGenerator
 
     final static String DEFAULTLOC= "DEFAULT-LOCATION";
     final static String DEFAULTPROC= "DEFAULT-PROCESS";
-    final static String VERBOSE= "VERBOSE";
+    final static String ISVERBOSE= "VERBOSE";
 
 
     final static String TIME = "%t";
@@ -108,7 +108,7 @@ public interface RecordLogEvent
      * to build all the necessary resources ready so that the execution of the outputs can run 
      * to the simulated timing
      */
-    public void initialize (Properties props, boolean verbose);
+    public void initialize (Properties props);
 
     public void writeLogEntry(String entry);
 
@@ -120,7 +120,7 @@ public interface RecordLogEvent
  */
 class LogToConsole implements RecordLogEvent
  {
-    public void initialize (Properties props, boolean verbose)    { }
+    public void initialize (Properties props)    { }
 
     public void writeLogEntry(String entry)
     {
@@ -709,7 +709,7 @@ class LogToConsole implements RecordLogEvent
             System.exit(-1);
         }
 
-        if ((props.get(VERBOSE) != null) && (props.get(VERBOSE).equalsIgnoreCase("true")))
+        if ((props.get(ISVERBOSE) != null) && (props.get(ISVERBOSE).equalsIgnoreCase("true")))
         {
             verbose=true;
             System.out.println ("In verbose mode");
@@ -758,7 +758,7 @@ class LogToConsole implements RecordLogEvent
                 Class instanceClass = Class.forName(outputImpPath);
                 if (verbose) {System.out.println ("class outputter is - " + instanceClass.getName());}
                 RecordLogEvent outputterInstance = instanceClass.newInstance();
-                outputterInstance.initialize(props, verbose);
+                outputterInstance.initialize(props);
                 eventRecorders.put(CUSTOM, outputterInstance);
 
             }

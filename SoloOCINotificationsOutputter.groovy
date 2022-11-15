@@ -32,6 +32,7 @@ class SoloOCINotificationsOutputter
   private static final String OCICONFIGFILE = "OCICONFIGFILE";
   private static final String TOPICID = "TOPICOCID";
   private static final String PROPFILEGROUP = "PROPFILEGROUP";
+  private static final String ISVERBOSE = "VERBOSE";
 
 
   private NotificationDataPlaneClient client = null;
@@ -49,16 +50,20 @@ class SoloOCINotificationsOutputter
     if (verbose) {System.out.println (msg);}
   }
 
-
   /*
   * prepare activity by getting the control parameters ready
   * create client object ready to use
   */
-  public void initialize (Properties props, boolean verbose)    
+  public void initialize (Properties props)    
   {
-    this.verbose = verbose;
     log("initializing OCI Notifications Outputter ....");
     ConfigFileReader.ConfigFile configFile = null;
+
+    String isVerbose = props.getProperty(ISVERBOSE);
+    if ((isVerbose != null) && (isVerbose.trim().length() > 0))
+    {
+      verbose = Boolean.parseBoolean(isVerbose);
+    }
 
     String prfileGrp = props.getProperty(PROPFILEGROUP);
     if ((prfileGrp != null) && (prfileGrp.trim().length() > 0))
@@ -226,9 +231,10 @@ class SoloOCINotificationsOutputter
     props.setProperty (TOPICID, System.getenv(TOPICID));
     props.setProperty (REGION, System.getenv(REGION));
     props.setProperty (OCICONFIGFILE, System.getenv(OCICONFIGFILE));
+    props.setProperty (ISVERBOSE, System.getenv(ISVERBOSE));
     boolean useJSONformat = (System.getenv("JSONFmt") != null);
 
-    notificationsOut.initialize (props, ((System.getenv("verbose") == null) || (System.getenv("verbose").trim().equalsIgnoreCase("true"))));
+    notificationsOut.initialize (props);
 
     int index = 0;
     DateTimeFormatter dtf = DateTimeFormatter.ofPattern(dtgFormat);  
