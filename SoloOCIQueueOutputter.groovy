@@ -30,6 +30,7 @@ import com.oracle.bmc.queue.requests.DeleteQueueRequest;
 
 import com.oracle.bmc.queue.model.UpdateMessagesDetails;
 import com.oracle.bmc.queue.requests.UpdateMessageRequest;
+import com.oracle.bmc.queue.requests.UpdateMessagesRequest;
 import com.oracle.bmc.queue.responses.UpdateMessagesResponse;
 import com.oracle.bmc.queue.responses.UpdateMessageResponse;
 import com.oracle.bmc.queue.model.UpdateMessagesDetailsEntry;
@@ -63,9 +64,6 @@ import java.util.Iterator;
  */
 public class SoloOCIQueueOutputter 
 {
-
-  private static final String AGENTTYPE="LOGSIM";
-  private static final String AGENTNAME = "AGENTNAME";
   private static final String BATCHSIZE = "BATCHSIZE";
   private static final String QUEUEOCID = "QUEUEOCID";
   private static final String QUEUENAME = "QUEUENAME";
@@ -74,6 +72,17 @@ public class SoloOCIQueueOutputter
   private static final String REGION = "REGION";
   private static final String QUEUECOMPARTMENTID = "QUEUECOMPARTMENTID";
   private static final String ISVERBOSE = "VERBOSE";
+  private static final String POLLDURATIONSECS = "POLLDURATIONSECS";
+  private static final String INTERREADELAYSECS = "INTERREADELAYSECS";
+  private static final String DELETEDURATIONSECS = "DELETEDURATIONSECS";
+  private static final String MAXGETS = "MAXGETS";
+  private static final String JSONFMT = "JSONFMT";
+
+  private static final String ACTION_SEND = "send";
+  private static final String ACTION_LIST = "list";
+  private static final String ACTION_CONSUME = "consume";
+  private static final String ACTION_DELETE = "delete";
+  private static final String ACTION_DELETE_OCID = "delete-ocid";
 
 
   private QueueClient client = null;
@@ -228,20 +237,37 @@ public class SoloOCIQueueOutputter
     {
       ocid = getQueueOCIDFor (id, compartmentId, adminClient, true);
     }
+
     
     if (ocid != null)
     {
       DeleteQueueRequest delRequest = DeleteQueueRequest.builder().queueId(ocid).build();
       DeleteQueueResponse delResponse = adminClient.deleteQueue(delRequest);
+
+      // lets find out how the deletion went
       GetWorkRequestRequest workRequest = GetWorkRequestRequest.builder().workRequestId(delResponse.getOpcWorkRequestId()).build();
       GetWorkRequestResponse workResponse = adminClient.getWorkRequest(workRequest);
-      WorkRequest workData =  workResponse.getWorkRequest();
-
-      //TODO: currently the code returns the result of the request NOT the result of the delete action itself
+      WorkRequest workData =  workResponse.getWorkRequest(); 
 
       log ("Delete request " + id + " result = " + workData.getStatus().toString());
-      log ("Deleted entity  = " + workData.getResources().get(0).getEntityType());
-      log ("Deleted OCID  = " + workData.getResources().get(0).getIdentifier());
+  
+      log ("Deleted no resources  = " + workData.getResources().size());
+      Iterator iter = workData.getResources().iterator();
+      while (iter.hasNext())
+      {
+        WorkRequestResource requestResource = (WorkRequestResource)iter.next();
+      log ("Deleted entity = " + requestResource.getEntityType());
+      log ("Deleted OCID  = " + requestResource.getIdentifier());
+      }
+      log ("Action requested at  = " + workData.getTimeAccepted().toString());
+      Date completed = workData.getTimeFinished();
+      if (completed != null)
+      {
+        log ("Action finished at  = " + workData.getTimeFinished().toString());
+      }
+
+      log ("Action progress  " + workData.getPercentComplete().toString() + "% complete");
+
 
     }
     else{
@@ -392,59 +418,14 @@ public class SoloOCIQueueOutputter
     log("initializing OCI Queue Outputter ....");
     ConfigFileReader.ConfigFile configFile = null;
 
-    /*String prfileGrp = props.getProperty(PROPFILEGROUP);
-    if ((prfileGrp != null) && (prfileGrp.trim().length() > 0))
-    {
-      profileGroup = prfileGrp;
-      log ("profile group id:"+prfileGrp);
-    }*/
-
-    verbose = Boolean.parseBoolean(props.getProperty(ISVERBOSE, "true"));
-
     batch = new ArrayList<PutMessagesDetailsEntry>();
-    String batchSze = props.getProperty(BATCHSIZE);
-    if ((batchSze != null) && (batchSze.trim().length() > 0 ))
-    {
-      try
-      {
-        batchSize = Integer.valueOf(batchSze);
-      }
-      catch (NumberFormatException numErr)
-      {
-        log ("Failed to translate batch size default to no batch");
-      }
-    }
+
+    batchSize = Integer.parseInt(props.getProperty(BATCHSIZE));
+    verbose = Boolean.parseBoolean(props.getProperty(ISVERBOSE, "true"));
 
     regionName = props.getProperty(REGION);
     compartmentId = props.getProperty(QUEUECOMPARTMENTID);
 
-    /*String OCIconfigLocation = props.getProperty(OCICONFIGFILE);
-    if ((OCIconfigLocation == null) || (OCIconfigLocation.trim().length() == 0))
-    {
-        log("Using default config for OCI properties - " + ConfigFileReader.DEFAULT_FILE_PATH);
-        try
-        {
-        configFile = ConfigFileReader.parseDefault();
-        }
-        catch (Exception err)
-        {
-          log ("Error trying to process default config file\n" + err.getMessage());
-          err.printStackTrace();
-        }
-    }
-    else
-    {
-      OCIconfigLocation = OCIconfigLocation.trim();
-      try{
-        configFile = ConfigFileReader.parse(OCIconfigLocation, profileGroup);
-      }
-      catch (Exception err)
-      {
-        log ("Error trying to process config file" +OCIconfigLocation + " \n" + err.getMessage());
-        err.printStackTrace();
-      }      
-    } */
-    //final AuthenticationDetailsProvider provider = new ConfigFileAuthenticationDetailsProvider(configFile);
     configFile = getConfigFile(props);
     AuthenticationDetailsProvider provider = new ConfigFileAuthenticationDetailsProvider(configFile);
 
@@ -452,25 +433,19 @@ public class SoloOCIQueueOutputter
     client.setEndpoint("https://cell-1.queue.messaging."+regionName+".oci.oraclecloud.com");
     log ("initialized OCI Queue client ");
 
+    QueueAdminClient adminClient = getQueueAdminClient(configFile);
+
     String queueName = props.getProperty(QUEUENAME);
     queueId = props.getProperty(QUEUEOCID);
     log (queueId + "|" + queueName);
-    if ((queueId == null) || (queueId.trim().length()==0))
+    if ((queueName != null) && (queueName.trim().length() > 0) && (queueId == null))
     {
-      if ((queueName != null) && (queueName.trim().length() > 0) && (queueId == null))
-      {
-        queueName = queueName.trim();
-        //QueueAdminClient adminClient = QueueAdminClient.builder().build(provider);
-        QueueAdminClient adminClient = getQueueAdminClient(configFile);
-        queueId = createQueue(queueName, compartmentId, adminClient, deadLetterQueueDeliveryCount, retentionInSeconds);
-      } 
+      queueName = queueName.trim();
+      queueId = createQueue(queueName, compartmentId, adminClient, deadLetterQueueDeliveryCount, retentionInSeconds);
     }  
 
-    {
-        QueueAdminClient adminClient = QueueAdminClient.builder().build(provider);
-        logQueueInfoFor(queueId, adminClient);
-        logQueueStatsFor(queueId, client);
-    }
+    logQueueInfoFor(queueId, adminClient);
+    logQueueStatsFor(queueId, client);
 
     log ("... initialized OCI Queue Outputter");
   }
@@ -609,6 +584,10 @@ static void deleteMessages (SoloOCIQueueOutputter queue, List<String> receipts)
   }
 }
 
+/*
+ * Wrap up thread sleep logic into 1 declaration with exception handling - makes the
+ * rest of the code a little neater and easier to read
+ */
 static void pause (String pauseName, int forSecs)
 {
   try{ 
@@ -622,6 +601,11 @@ static void pause (String pauseName, int forSecs)
 }
 
 /*
+ * Implements the logic for reading from queues. Behaviour can be modified with the use of additional properties
+ * POLLDURATIONSECS - non zero values will initiate log poll behaviour
+ * DELETEDURATIONSECS - as long transactions may result in the need to delay making the queue entry for a process to read
+ * this setting when configured will request OCI to delay exposing the message on the assumption the client had a problem.
+ * INTERREADELAYSECS - if set will induce the code to pause between each read cycle
  */
 static void readQueue (SoloOCIQueueOutputter queue, Properties props)
 {
@@ -629,29 +613,28 @@ static void readQueue (SoloOCIQueueOutputter queue, Properties props)
     LocalDateTime now = LocalDateTime.now();
     String display_time = now.format(dtf);
     int loopCtr =0;
+    int pollDurationSecs = 0;
+    int interReadDelaySecs = 10;
+    int deleteDelaySecs = 0;
     int maxLoops = 10;
-    int pollDurationSecs = Integer.parseInt(props.getProperty("POLLDURATIONSECS", "0"));
-    int interReadDelaySecs = Integer.parseInt(props.getProperty("INTERREADELAYSECS", "10"));
-    int deleteDelaySecs = Integer.parseInt(props.getProperty("DELETEDURATIONSECS", "0"));
+
     boolean extendMessageInvisibility = false;
     boolean unlimitedLoops = false;
 
     queue.initialize (props);
 
     try{
-      String maxLoopsStr = props.getProperty("MAXGETS");
-      if (maxLoopsStr == null)
-      {
-          unlimitedLoops = true;
-      }
-      else
-      {
-          maxLoops = Integer.parseInt(maxLoopsStr);
-      }
+      // protect against risk of value set not parsing
+      pollDurationSecs = Integer.parseInt(props.getProperty(POLLDURATIONSECS, "0"));
+      interReadDelaySecs = Integer.parseInt(props.getProperty(INTERREADELAYSECS, "10"));
+      deleteDelaySecs = Integer.parseInt(props.getProperty(DELETEDURATIONSECS, "0"));
+      maxLoops = Integer.parseInt(props.getProperty(MAXGETS, "0"));
+      unlimitedLoops = (maxLoops == 0);
+
     }
     catch (Exception err)
     {
-      log ("trying to set iteration control and caught error -" + err.getMessage());
+      log ("trying to initialise config values -" + err.getMessage());
       unlimitedLoops = true;
     }
 
@@ -736,13 +719,16 @@ static void readQueue (SoloOCIQueueOutputter queue, Properties props)
       props.setProperty (QUEUEOCID, System.getenv(QUEUEOCID));
       log ("queueId=" + props.getProperty(QUEUEOCID));
     }
+
+    // if we try to set a property with a null value - then we'll get an exception
+    // this is ok as these values are essential
     props.setProperty (REGION, System.getenv(REGION));
     props.setProperty (QUEUENAME, System.getenv(QUEUENAME));
     props.setProperty (OCICONFIGFILE, System.getenv(OCICONFIGFILE));
-    boolean useJSONformat = (System.getenv("JSONFMT") != null);
+    boolean useJSONformat = (System.getenv(JSONFMT) != null);
     props.setProperty (QUEUECOMPARTMENTID, System.getenv(QUEUECOMPARTMENTID));
-    props.setProperty (ISVERBOSE, System.getenv("VERBOSE"));
-    boolean verbose =((System.getenv("VERBOSE") == null) || (System.getenv("VERBOSE").trim().equalsIgnoreCase("true")));
+    props.setProperty (ISVERBOSE, System.getenv(ISVERBOSE));
+    verbose =((System.getenv(ISVERBOSE) == null) || (System.getenv(ISVERBOSE).trim().equalsIgnoreCase("true")));
 
     if (args.length >0)
     {
@@ -750,29 +736,29 @@ static void readQueue (SoloOCIQueueOutputter queue, Properties props)
     }
     else
     {
-      action = "send";
+      action = ACTION_SEND;
     }
 
     log ("action is:" + action);
-    if (action.equalsIgnoreCase("send"))
+    if (action.equalsIgnoreCase(ACTION_SEND))
     {
       send (queue, props, useJSONformat, verbose);
     }
-    else if (action.equalsIgnoreCase("delete"))
+    else if (action.equalsIgnoreCase(ACTION_DELETE))
     {
       deleteQueue (true,props.getProperty(QUEUENAME), props.getProperty(QUEUECOMPARTMENTID),  getQueueAdminClient(getConfigFile(props)));
     }
-    else if (action.equalsIgnoreCase("delete-ocid"))
+    else if (action.equalsIgnoreCase(ACTION_DELETE_OCID))
     {
       deleteQueue (false,props.getProperty(QUEUEOCID), props.getProperty(QUEUECOMPARTMENTID),  getQueueAdminClient(getConfigFile(props)));
     }      
-    else if (action.equalsIgnoreCase("list"))
+    else if (action.equalsIgnoreCase(ACTION_LIST))
     {
       queue.verbose = true;
       getQueueOCIDFor (null,  props.getProperty(QUEUECOMPARTMENTID), getQueueAdminClient(getConfigFile(props)), false);
       queue.verbose = false;
     }
-    else if (action.equalsIgnoreCase("consume"))
+    else if (action.equalsIgnoreCase(ACTION_CONSUME))
     {
       readQueue (queue, props);
     }    
