@@ -62,7 +62,7 @@ import java.util.Iterator;
  * Controls from this are loaded from the provided properties file
  * connection details to OCI come from a separate properties file
  */
-public class SoloOCIQueueOutputter 
+public class SoloOCIQueueDemoTool 
 {
   private static final String BATCHSIZE = "BATCHSIZE";
   private static final String QUEUEOCID = "QUEUEOCID";
@@ -76,16 +76,22 @@ public class SoloOCIQueueOutputter
   private static final String INTERREADELAYSECS = "INTERREADELAYSECS";
   private static final String DELETEDURATIONSECS = "DELETEDURATIONSECS";
   private static final String MAXGETS = "MAXGETS";
+  private static final String RETENTIONSECONDS = "RETENTIONSECONDS";
+  private static final String DLQCOUNT = "DLQCOUNT";
   private static final String JSONFMT = "JSONFMT";
 
+
   private static final String ACTION_SEND = "send";
+  private static final String ACTION_SEND_NEW = "send-new";
   private static final String ACTION_LIST = "list";
+    private static final String ACTION_INFO = "info";
   private static final String ACTION_CONSUME = "consume";
   private static final String ACTION_DELETE = "delete";
   private static final String ACTION_DELETE_OCID = "delete-ocid";
 
 
   private QueueClient client = null;
+  private QueueAdminClient adminClient = null;
 
   private String queueName = "";
   private String queueId = null;
@@ -116,62 +122,102 @@ public class SoloOCIQueueOutputter
 
   /*
    * Using thew queue OCID (Id) we can provide information about the queue such as its depth, average message size etc
+   * As permissions for information on the queues is split between the normal client and the admin (i.e. normal client can see queue depth)
+   * admin can see the queue metadata like created etc   - need both clients
+   * We have multiline so we can return all the details in a table like format for 1 queue, or a result more suited to displaying a table of multiple queues
    */
-  static void logQueueStatsFor (String queueId, QueueClient client)
+  static String logQueueInfoFor (String queueId, QueueClient client, QueueAdminClient adminClient, boolean multiline)
   {
-    GetStatsRequest request = GetStatsRequest.builder().queueId(queueId).build();
-    GetStatsResponse response = client.getStats(request);
-    Stats stats = response.getQueueStats().getQueue();
+    GetStatsRequest statsRequest = null;
+    GetStatsResponse statsResponse = null;
+    Stats stats = null;
+    GetQueueRequest request = null;
+    GetQueueResponse response = null;
+    Queue queue = null;
 
-    String size = "0";
-    Long sizeBytes = stats.getSizeInBytes();
-    if (sizeBytes != 0)
+    if (adminClient != null)
     {
-      size = new BigDecimal(sizeBytes/1024).toString();
+      request = GetQueueRequest.builder().queueId(queueId).build();
+      // you might want to consider including the Queue status into the attributes here. If not then recommend you examine the status of the queue in the response
+      response = adminClient.getQueue(request);
+      queue = response.getQueue();
     }
 
-    log ("-------------");
-    log ("Queue id : " + queueId);
-    log ("Visible messages : " + stats.getVisibleMessages().toString());
-    log ("InFlight messages : " + stats.getInFlightMessages().toString());
-    log ("Queue size (MB) : " + size);
-    log ("-------------");
-    log ("stats response done");
+    if (client != null)
+    {
+      statsRequest = GetStatsRequest.builder().queueId(queueId).build();
+      statsResponse = client.getStats(statsRequest);
+      stats = statsResponse.getQueueStats().getQueue();
+    }
 
-  }
 
-  /*
-   * With a queue OCID we can obtain the configuration about a specific queue
-   */
-  static void logQueueInfoFor (String queueId, QueueAdminClient adminClient)
-  {
-    GetQueueRequest request = GetQueueRequest.builder().queueId(queueId).build();
-    GetQueueResponse response = adminClient.getQueue(request);
-    Queue queue = response.getQueue();
+    String queueInfo = "";
+    String separator =" | ";    
 
-    log ("-------------");
-    log("Queue :" + queue.getDisplayName());
-    log("Queue Id : " + queue.getId());
-    log ("Created :" + queue.getTimeCreated().toString());
-    log ("Updated :" + queue.getTimeUpdated().toString());
-    log ("Lifecycle state :" + queue.getLifecycleState().toString());
-    log ("Lifecycle details :" + queue.getLifecycleDetails());
-    log("Compartment Id :" + queue.getCompartmentId());
-    log ("Endpoint: " + queue.getMessagesEndpoint());
-    log ("retention mins :" + (queue.getRetentionInSeconds() / 60));
-    log ("-------------");
+    String size = "0";
+    if (stats != null)
+    {
+      Long sizeBytes = stats.getSizeInBytes();
+      if (sizeBytes != 0)
+      {
+        size = new BigDecimal(sizeBytes/1024).toString();
+      }
+    }
+    
+    if (multiline)
+    {
+      separator = "\n";
+      queueInfo= "-------------" + separator;
+    }
 
+    queueInfo+= "Queue id : " + queueId + separator;
+    if (queue != null)
+    {
+      queueInfo+= "Queue name :" + queue.getDisplayName()+separator;
+    }
+
+    if (queue != null)
+    {
+
+      queueInfo+= "Lifecycle state :" + queue.getLifecycleState().toString() + separator;
+      if (queue.getLifecycleDetails() != null)
+      {
+        queueInfo+= "Lifecycle details :" + queue.getLifecycleDetails() + separator;
+      }
+      queueInfo+= "Created :" + queue.getTimeCreated().toString() + separator;
+      queueInfo+= "Updated :" + queue.getTimeUpdated().toString() + separator;      
+      queueInfo+= "Compartment Id :" + queue.getCompartmentId() + separator;
+      queueInfo+= "Endpoint: " + queue.getMessagesEndpoint() + separator;
+      queueInfo+= "retention mins :" + (queue.getRetentionInSeconds() / 60) + separator;
+    }
+
+    if (stats != null)
+    {
+      queueInfo+= "Visible messages : " + stats.getVisibleMessages().toString() + separator;
+      queueInfo+= "InFlight messages : " + stats.getInFlightMessages().toString() + separator;
+      queueInfo+= "Queue size (MB) : " + size + separator;
+    }
+
+    if (multiline)
+    {
+      queueInfo+= "-------------";
+    }
+
+    return (queueInfo);
      
   }
 
   /*
    * Get the queue OCID using the queue name. This assumes you're not likely to create the same queue in the same compartment
    * Strictly speaking we should us track the job status. By stipulating no or partial name we can list the queues. The returned OCID
-   * is either the first occurence found or the last occurence (of the name found) depending upon the returnFirst
+   * is either the first occurrence found or the last occurrence (of the name found) depending upon the returnFirst
    * As a resault we can use this method to list the compartments queues.
    */
-  static String getQueueOCIDFor (String queueName, String compartmentId, QueueAdminClient adminClient, boolean returnFirst)
+  static String getQueueOCIDFor (String queueName, String compartmentId, QueueAdminClient adminClient, boolean returnFirst, boolean displayInfo)
   {
+    String queueOCID = null;
+
+    // we'll make a number of attempts to locate the desired queue
     for (int attempt=0; attempt < 10; attempt++)
     {
       ListQueuesRequest listRequest = null;
@@ -190,13 +236,22 @@ public class SoloOCIQueueOutputter
       
       Iterator iter = queueList.iterator();
       QueueSummary queue = null;
-      String queueOCID = null;
 
       log ("Matched " + queueList.size());
       while (iter.hasNext())
       {
         queue = (QueueSummary)iter.next();
-        log ("Located queue:" + queue.getDisplayName() + " -- " + queue.getId());
+        String additionalInfo = "";
+        if (displayInfo)
+        {
+          //additionalInfo = " -->" + logQueueInfoFor( queue.getId(), null, adminClient, false);
+          log (logQueueInfoFor( queue.getId(), null, adminClient, false));
+        }
+        else
+        {
+          log ("Located queue:" + queue.getDisplayName() + " -- " + queue.getId() );
+        }
+
         if ((queueName != null) && queue.getDisplayName().equals(queueName))
         {
           if (queueOCID ==null)
@@ -210,6 +265,7 @@ public class SoloOCIQueueOutputter
         }
       }
 
+      // once we've got a match return the result - no point in retrying
       if ((queueName == null) || (queueOCID != null))
       {
         return queueOCID;
@@ -222,12 +278,14 @@ public class SoloOCIQueueOutputter
 
     }
 
+    // failed to locate 
     return null;
   }
 
   /*
-   * This deletes the queue. The queue can be iether the queue's name or OCID. If the name is provided then the 1st occurence of the named
+   * This deletes the queue. The queue can be either the queue's name or OCID. If the name is provided then the 1st occurrence of the named
    * queue in the compartment is targeted.
+   * We can delete by using the queue display name or via the OCID
    */
   static void deleteQueue (boolean byName, String id, String compartmentId, QueueAdminClient adminClient)
   {
@@ -235,12 +293,12 @@ public class SoloOCIQueueOutputter
     log ("Deleting " + id);
     if (byName)
     {
-      ocid = getQueueOCIDFor (id, compartmentId, adminClient, true);
+      ocid = getQueueOCIDFor (id, compartmentId, adminClient, true, false);
     }
 
-    
     if (ocid != null)
     {
+      // request the queue deletion
       DeleteQueueRequest delRequest = DeleteQueueRequest.builder().queueId(ocid).build();
       DeleteQueueResponse delResponse = adminClient.deleteQueue(delRequest);
 
@@ -256,9 +314,10 @@ public class SoloOCIQueueOutputter
       while (iter.hasNext())
       {
         WorkRequestResource requestResource = (WorkRequestResource)iter.next();
-      log ("Deleted entity = " + requestResource.getEntityType());
-      log ("Deleted OCID  = " + requestResource.getIdentifier());
+        log ("Deleted entity = " + requestResource.getEntityType() + " | Deleted OCID  = " + requestResource.getIdentifier());
       }
+
+      // share the timing information
       log ("Action requested at  = " + workData.getTimeAccepted().toString());
       Date completed = workData.getTimeFinished();
       if (completed != null)
@@ -268,9 +327,9 @@ public class SoloOCIQueueOutputter
 
       log ("Action progress  " + workData.getPercentComplete().toString() + "% complete");
 
-
     }
-    else{
+    else
+    {
       log ("Couldn't delete - queue " + id + " OCID " + ocid);
     }
   }
@@ -283,12 +342,14 @@ public class SoloOCIQueueOutputter
   {
     String queueOCID = null;
     log ("Creating Queue with name " + queueName);
-
+    // provide the queue configuration - setting options such as rention, DLQ etc
     CreateQueueDetails details = CreateQueueDetails.builder().compartmentId(compartmentId).
           deadLetterQueueDeliveryCount(deadLetterQueueDeliveryCount).
           displayName(queueName).
           retentionInSeconds(retentionInSeconds).
           build();
+
+    // submit the request and then track the progress 
     CreateQueueRequest createRequest = CreateQueueRequest.builder().createQueueDetails(details).build();
     CreateQueueResponse createResponse = adminClient.createQueue(createRequest);
     String jobId = createResponse.getOpcWorkRequestId();
@@ -384,7 +445,7 @@ public class SoloOCIQueueOutputter
         log("Using default config for OCI properties - " + ConfigFileReader.DEFAULT_FILE_PATH);
         try
         {
-        configFile = ConfigFileReader.parseDefault();
+          configFile = ConfigFileReader.parseDefault();
         }
         catch (Exception err)
         {
@@ -422,6 +483,8 @@ public class SoloOCIQueueOutputter
 
     batchSize = Integer.parseInt(props.getProperty(BATCHSIZE));
     verbose = Boolean.parseBoolean(props.getProperty(ISVERBOSE, "true"));
+    deadLetterQueueDeliveryCount = new Integer(props.getProperty(DLQCOUNT, "0"));
+    retentionInSeconds = new Integer(props.getProperty(RETENTIONSECONDS, "1200"));
 
     regionName = props.getProperty(REGION);
     compartmentId = props.getProperty(QUEUECOMPARTMENTID);
@@ -429,11 +492,7 @@ public class SoloOCIQueueOutputter
     configFile = getConfigFile(props);
     AuthenticationDetailsProvider provider = new ConfigFileAuthenticationDetailsProvider(configFile);
 
-    client = QueueClient.builder().build(provider);
-    client.setEndpoint("https://cell-1.queue.messaging."+regionName+".oci.oraclecloud.com");
-    log ("initialized OCI Queue client ");
-
-    QueueAdminClient adminClient = getQueueAdminClient(configFile);
+    adminClient = getQueueAdminClient(configFile);
 
     String queueName = props.getProperty(QUEUENAME);
     queueId = props.getProperty(QUEUEOCID);
@@ -442,10 +501,12 @@ public class SoloOCIQueueOutputter
     {
       queueName = queueName.trim();
       queueId = createQueue(queueName, compartmentId, adminClient, deadLetterQueueDeliveryCount, retentionInSeconds);
+
     }  
 
-    logQueueInfoFor(queueId, adminClient);
-    logQueueStatsFor(queueId, client);
+    log ("initialized OCI Queue client ");
+    client = QueueClient.builder().build(provider);
+    client = setQueueEndpoint (adminClient, client, queueId, props);
 
     log ("... initialized OCI Queue Outputter");
   }
@@ -500,9 +561,8 @@ public class SoloOCIQueueOutputter
  /*
   * This method will cycle round generating messages to send
   */
- static void send (SoloOCIQueueOutputter queueOut, Properties props, boolean useJSONformat, boolean verbose)
+ static void send (SoloOCIQueueDemoTool queueOut, Properties props, boolean useJSONformat, boolean verbose)
  {
-
     queueOut.initialize (props);
 
     int index = 0;
@@ -542,8 +602,9 @@ public class SoloOCIQueueOutputter
  * of message requires longer to be processed. Another  scenario maybe that transactions are taking longer to complete
  * Here we're applying the extension of the non-visible time on an individual message
  */
-static void extendInvisibility (SoloOCIQueueOutputter queue, String receipt, int delayDuration)
+static void extendInvisibility (SoloOCIQueueDemoTool queue, String receipt, int delayDuration)
 {
+  log ("Extending visibility for " + delayDuration);
   UpdateMessageResponse response = queue.client.updateMessage(UpdateMessageRequest.builder()
         .queueId(queue.queueId)
         .messageReceipt(receipt)
@@ -556,13 +617,14 @@ static void extendInvisibility (SoloOCIQueueOutputter queue, String receipt, int
   //if ((errors != null) && (errors.length() > 0))
   //{
   //  log ("Error with requesting a delay in visibility"+ errors + " for " + receipt);
+  log ("visibility delayed " + response.toString());
   //}
 }
 
 /*
  * Messages are deleted once a receipt is returned back to the queue.  Here we're responding with a bulk delete
  */
-static void deleteMessages (SoloOCIQueueOutputter queue, List<String> receipts)
+static void deleteMessages (SoloOCIQueueDemoTool queue, List<String> receipts)
 {
   List<UpdateMessagesDetailsEntry> entries = new ArrayList<>();
   Iterator receiptsIter = receipts.iterator();
@@ -607,7 +669,7 @@ static void pause (String pauseName, int forSecs)
  * this setting when configured will request OCI to delay exposing the message on the assumption the client had a problem.
  * INTERREADELAYSECS - if set will induce the code to pause between each read cycle
  */
-static void readQueue (SoloOCIQueueOutputter queue, Properties props)
+static void readQueue (SoloOCIQueueDemoTool queue, Properties props)
 {
     DateTimeFormatter dtf = DateTimeFormatter.ofPattern(DTG_FORMAT);  
     LocalDateTime now = LocalDateTime.now();
@@ -637,12 +699,11 @@ static void readQueue (SoloOCIQueueOutputter queue, Properties props)
       log ("trying to initialise config values -" + err.getMessage());
       unlimitedLoops = true;
     }
-
+    
     log ("Read unlimited-"+ unlimitedLoops 
         + " maxLoops " + maxLoops 
-        + "; each call duration " 
-        + pollDurationSecs 
-        + " will delay deletes " + (deleteDelaySecs>0));
+        + "; each call duration " + pollDurationSecs 
+        + " will delay deletes for" + deleteDelaySecs);
 
     while (unlimitedLoops || (loopCtr < maxLoops))
     {
@@ -694,6 +755,23 @@ static void readQueue (SoloOCIQueueOutputter queue, Properties props)
     }
   }
 
+  static void setPropertyFromVar(String propname, String envName, Properties props)
+  {
+    String envVal = System.getenv(envName);
+    if (envVal != null)
+    {
+      props.setProperty(propname, envVal);
+    }
+  }
+
+  static void displayInfo(SoloOCIQueueDemoTool queue, Properties props)
+  {
+      queue.initialize (props);
+      queue.verbose = true;
+      log (logQueueInfoFor(props.getProperty(QUEUEOCID), queue.client, queue.adminClient, true));
+      queue.verbose = true;
+  }
+
   /*
   * Simple main function that drives the class to generate a simple log message
   * To use this approach the environment needs the OCI Config file for the SDK
@@ -708,26 +786,26 @@ static void readQueue (SoloOCIQueueOutputter queue, Properties props)
   */
   public static void main (String[] args)
   {
-    SoloOCIQueueOutputter queue = new SoloOCIQueueOutputter();
+    SoloOCIQueueDemoTool queue = new SoloOCIQueueDemoTool();
 
     String action = null;
     Properties props = new Properties();
     // to avoid needing the base classes we grab environment variables and set the properties that way
     props.setProperty (BATCHSIZE, "1");
-    if (System.getenv(QUEUEOCID) != null) 
-    {
-      props.setProperty (QUEUEOCID, System.getenv(QUEUEOCID));
-      log ("queueId=" + props.getProperty(QUEUEOCID));
-    }
 
-    // if we try to set a property with a null value - then we'll get an exception
-    // this is ok as these values are essential
-    props.setProperty (REGION, System.getenv(REGION));
-    props.setProperty (QUEUENAME, System.getenv(QUEUENAME));
-    props.setProperty (OCICONFIGFILE, System.getenv(OCICONFIGFILE));
     boolean useJSONformat = (System.getenv(JSONFMT) != null);
-    props.setProperty (QUEUECOMPARTMENTID, System.getenv(QUEUECOMPARTMENTID));
-    props.setProperty (ISVERBOSE, System.getenv(ISVERBOSE));
+    setPropertyFromVar (REGION, REGION, props);
+    setPropertyFromVar (QUEUENAME, QUEUENAME, props);
+    setPropertyFromVar (QUEUEOCID, QUEUEOCID, props);
+    setPropertyFromVar (OCICONFIGFILE, OCICONFIGFILE, props);
+    setPropertyFromVar (QUEUECOMPARTMENTID, QUEUECOMPARTMENTID, props);
+    setPropertyFromVar (ISVERBOSE, ISVERBOSE, props);
+    setPropertyFromVar (MAXGETS, MAXGETS, props);
+    setPropertyFromVar (DELETEDURATIONSECS, DELETEDURATIONSECS, props);
+    setPropertyFromVar (POLLDURATIONSECS, POLLDURATIONSECS, props);
+    setPropertyFromVar (DLQCOUNT, DLQCOUNT, props);
+    setPropertyFromVar (RETENTIONSECONDS, RETENTIONSECONDS, props);
+
     verbose =((System.getenv(ISVERBOSE) == null) || (System.getenv(ISVERBOSE).trim().equalsIgnoreCase("true")));
 
     if (args.length >0)
@@ -744,24 +822,42 @@ static void readQueue (SoloOCIQueueOutputter queue, Properties props)
     {
       send (queue, props, useJSONformat, verbose);
     }
+    if (action.equalsIgnoreCase(ACTION_SEND_NEW))
+    {
+      props.remove(QUEUEOCID);
+      send (queue, props, useJSONformat, verbose);
+    }    
     else if (action.equalsIgnoreCase(ACTION_DELETE))
     {
       deleteQueue (true,props.getProperty(QUEUENAME), props.getProperty(QUEUECOMPARTMENTID),  getQueueAdminClient(getConfigFile(props)));
     }
     else if (action.equalsIgnoreCase(ACTION_DELETE_OCID))
     {
-      deleteQueue (false,props.getProperty(QUEUEOCID), props.getProperty(QUEUECOMPARTMENTID),  getQueueAdminClient(getConfigFile(props)));
-    }      
+      String deleteOCID = props.getProperty(QUEUEOCID);
+      if (args.length >1)
+      {
+        String altOCID = args[1].trim();
+        if (altOCID.length() > 0)
+        {
+          deleteOCID = altOCID;
+        }
+      }
+      deleteQueue (false, deleteOCID, props.getProperty(QUEUECOMPARTMENTID),  getQueueAdminClient(getConfigFile(props)));
+    }    
     else if (action.equalsIgnoreCase(ACTION_LIST))
     {
       queue.verbose = true;
-      getQueueOCIDFor (null,  props.getProperty(QUEUECOMPARTMENTID), getQueueAdminClient(getConfigFile(props)), false);
+      getQueueOCIDFor (null,  props.getProperty(QUEUECOMPARTMENTID), getQueueAdminClient(getConfigFile(props)), false, true);
       queue.verbose = false;
     }
     else if (action.equalsIgnoreCase(ACTION_CONSUME))
     {
       readQueue (queue, props);
     }    
+    else if (action.equalsIgnoreCase(ACTION_INFO))
+    {
+      displayInfo(queue, props);
+    }
     else
     {
       log ("Action " + action + " not understood");
