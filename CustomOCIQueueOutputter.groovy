@@ -7,7 +7,7 @@
  * Controls from this are loaded from the provided properties file
  * connection details to OCI come from a separate properties file
  */
-class CustomOCIQueueOutputter extends SoloOCIQueueOutputter implements LogGenerator.RecordLogEvent
+class CustomOCIQueueOutputter extends SoloOCIQueueDemoTool implements LogGenerator.RecordLogEvent
 {
 
 }
