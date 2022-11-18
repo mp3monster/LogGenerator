@@ -764,7 +764,8 @@ class LogToConsole implements RecordLogEvent
             }
             catch (Exception err)
             {
-                System.out.println ("Error trying to prepare custom output type: \n" + err.toString());
+                System.out.println ("Error trying to prepare custom output type: "+outputImpPath+"\n" + err.toString());
+                err.printStackTrace();
                 System.exit(-1);
             }
         }
