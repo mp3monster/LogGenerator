@@ -84,10 +84,11 @@ public class SoloOCIQueueDemoTool
   private static final String ACTION_SEND = "send";
   private static final String ACTION_SEND_NEW = "send-new";
   private static final String ACTION_LIST = "list";
-    private static final String ACTION_INFO = "info";
+  private static final String ACTION_INFO = "info";
   private static final String ACTION_CONSUME = "consume";
   private static final String ACTION_DELETE = "delete";
   private static final String ACTION_DELETE_OCID = "delete-ocid";
+  private static final String POSTSENDDELAYSECS = "POSTSENDDELAYSECS";
 
 
   private QueueClient client = null;
@@ -481,7 +482,7 @@ public class SoloOCIQueueDemoTool
 
     batch = new ArrayList<PutMessagesDetailsEntry>();
 
-    batchSize = Integer.parseInt(props.getProperty(BATCHSIZE));
+    batchSize = Integer.parseInt(props.getProperty(BATCHSIZE, "1"));
     verbose = Boolean.parseBoolean(props.getProperty(ISVERBOSE, "true"));
     deadLetterQueueDeliveryCount = new Integer(props.getProperty(DLQCOUNT, "0"));
     retentionInSeconds = new Integer(props.getProperty(RETENTIONSECONDS, "1200"));
@@ -566,7 +567,8 @@ public class SoloOCIQueueDemoTool
     queueOut.initialize (props);
 
     int index = 0;
-    DateTimeFormatter dtf = DateTimeFormatter.ofPattern(DTG_FORMAT);  
+    DateTimeFormatter dtf = DateTimeFormatter.ofPattern(DTG_FORMAT);
+    int postSendDelaySecs = Integer.parseInt(props.getProperty(POSTSENDDELAYSECS, "5"));
     LocalDateTime now = null;
     try{
       while (true)
@@ -583,7 +585,10 @@ public class SoloOCIQueueDemoTool
           // format for a human readable message:
           queueOut.writeLogEntry("Message " + index + " at " + now.format(dtf) + " sent from client app");
         }
-        pause("send delay", 5);
+        if (postSendDelaySecs != 0)
+        {
+          pause("send delay", postSendDelaySecs);
+        }
 
         index++;
       }
@@ -805,6 +810,8 @@ static void readQueue (SoloOCIQueueDemoTool queue, Properties props)
     setPropertyFromVar (POLLDURATIONSECS, POLLDURATIONSECS, props);
     setPropertyFromVar (DLQCOUNT, DLQCOUNT, props);
     setPropertyFromVar (RETENTIONSECONDS, RETENTIONSECONDS, props);
+    setPropertyFromVar (POSTSENDDELAYSECS, RETENTIONSECONDS, props);
+
 
     verbose =((System.getenv(ISVERBOSE) == null) || (System.getenv(ISVERBOSE).trim().equalsIgnoreCase("true")));
 
@@ -860,7 +867,11 @@ static void readQueue (SoloOCIQueueDemoTool queue, Properties props)
     }
     else
     {
+      queue.verbose = true;
       log ("Action " + action + " not understood");
+    if (action.equalsIgnoreCase(ACTION_SEND))
+      log ("Options are:" + " | " + ACTION_SEND_NEW + " | " + ACTION_DELETE_OCID + " | " 
+            + ACTION_LIST + " | " + ACTION_CONSUME + " | " + ACTION_INFO);
     }
 
     queue.clearDown();
