@@ -30,12 +30,18 @@ import com.oracle.bmc.queue.requests.DeleteQueueRequest;
 
 import com.oracle.bmc.queue.model.UpdateMessagesDetails;
 import com.oracle.bmc.queue.requests.UpdateMessageRequest;
+import com.oracle.bmc.queue.requests.DeleteMessageRequest;
 import com.oracle.bmc.queue.requests.UpdateMessagesRequest;
+import com.oracle.bmc.queue.requests.DeleteMessagesRequest;
 import com.oracle.bmc.queue.responses.UpdateMessagesResponse;
+import com.oracle.bmc.queue.responses.DeleteMessagesResponse;
 import com.oracle.bmc.queue.responses.UpdateMessageResponse;
+import com.oracle.bmc.queue.responses.DeleteMessageResponse;
 import com.oracle.bmc.queue.model.UpdateMessagesDetailsEntry;
+import com.oracle.bmc.queue.model.DeleteMessagesDetailsEntry;
 import com.oracle.bmc.queue.model.GetMessage;
 import com.oracle.bmc.queue.model.UpdateMessageDetails;
+import com.oracle.bmc.queue.model.DeleteMessagesDetails;
 import com.oracle.bmc.queue.requests.GetMessagesRequest;
 import com.oracle.bmc.queue.responses.GetWorkRequestResponse;
 import com.oracle.bmc.queue.responses.DeleteQueueResponse;
@@ -627,27 +633,35 @@ static void extendInvisibility (SoloOCIQueueDemoTool queue, String receipt, int 
 }
 
 /*
- * Messages are deleted once a receipt is returned back to the queue.  Here we're responding with a bulk delete
+ * To delete a message we need to supply the receipt.  Here we're responding with a bulk delete
  */
 static void deleteMessages (SoloOCIQueueDemoTool queue, List<String> receipts)
 {
-  List<UpdateMessagesDetailsEntry> entries = new ArrayList<>();
+  List<DeleteMessagesDetailsEntry> entries = new ArrayList<DeleteMessagesDetailsEntry>();
   Iterator receiptsIter = receipts.iterator();
 
   while (receiptsIter.hasNext())
   {
     String receipt = (String)receiptsIter.next();
-      entries.add(UpdateMessagesDetailsEntry.builder().receipt(receipt).build());
+      entries.add(DeleteMessagesDetailsEntry.builder().receipt(receipt).build());
   }
-  UpdateMessagesResponse batchResponse = queue.client
-                .updateMessages(UpdateMessagesRequest.builder().queueId(queue.queueId)
-                        .updateMessagesDetails(UpdateMessagesDetails.builder().entries(entries).build()).build());
+  DeleteMessagesResponse batchResponse = queue.client
+                .deleteMessages(DeleteMessagesRequest.builder().queueId(queue.queueId)
+                        .deleteMessagesDetails(DeleteMessagesDetails.builder().entries(entries).build())
+                .build());
 
-  String errors = batchResponse.getUpdateMessagesResult().getClientFailures().toString();  
+  String errors = batchResponse.getDeleteMessagesResult().getServerFailures().toString();  
 
-  if ((errors != null) && (errors.length() > 0))
+  // the returned value is a string representation of a number of errors that occurred during deletion
+  // to be defensive - ensure we have a non null value back
+  if ((errors != null) && (errors.length() > 0) && (!errors.equals("0")))
   {
     log ("Errors deleting messages:" + errors);
+    log (batchResponse.getDeleteMessagesResult().toString());
+  }
+  else
+  {
+    log ("Delete successful for " + entries.size() + " message(s))");
   }
 }
 
@@ -657,7 +671,9 @@ static void deleteMessages (SoloOCIQueueDemoTool queue, List<String> receipts)
  */
 static void pause (String pauseName, int forSecs)
 {
-  try{ 
+  try
+  { 
+    log ("Delay for " + forSecs + " requested " + pauseName);
     Thread.sleep(forSecs*1000);
   }
   catch (Exception err) 
@@ -732,7 +748,7 @@ static void readQueue (SoloOCIQueueDemoTool queue, Properties props)
           GetMessage message = (GetMessage)iter.next();
           String receipt = message.getReceipt();
           String content = message.getContent();    
-          log (display_time + " --message:" + message + " -- receipt:"+receipt);
+          log (display_time + "message:" + content + " | receipt:"+receipt);
 
           // if we expect the processing of an event to take longer than usual
           if (deleteDelaySecs > 0)
@@ -760,6 +776,10 @@ static void readQueue (SoloOCIQueueDemoTool queue, Properties props)
     }
   }
 
+  /*
+   * Simple utility function - trying to set a property with a null value triggers an exception - rather than wrapping all the code
+   * with the same If conditions - we've parameterized it.
+   */
   static void setPropertyFromVar(String propname, String envName, Properties props)
   {
     String envVal = System.getenv(envName);
@@ -769,6 +789,10 @@ static void readQueue (SoloOCIQueueDemoTool queue, Properties props)
     }
   }
 
+  /*
+   * Performs the action of displaying the retrieved information. Uses logQueueInfoFor to build the output
+   * string for us.
+   */
   static void displayInfo(SoloOCIQueueDemoTool queue, Properties props)
   {
       queue.initialize (props);
@@ -810,7 +834,7 @@ static void readQueue (SoloOCIQueueDemoTool queue, Properties props)
     setPropertyFromVar (POLLDURATIONSECS, POLLDURATIONSECS, props);
     setPropertyFromVar (DLQCOUNT, DLQCOUNT, props);
     setPropertyFromVar (RETENTIONSECONDS, RETENTIONSECONDS, props);
-    setPropertyFromVar (POSTSENDDELAYSECS, RETENTIONSECONDS, props);
+    setPropertyFromVar (POSTSENDDELAYSECS, INTERREADELAYSECS, props);
 
 
     verbose =((System.getenv(ISVERBOSE) == null) || (System.getenv(ISVERBOSE).trim().equalsIgnoreCase("true")));
@@ -869,7 +893,6 @@ static void readQueue (SoloOCIQueueDemoTool queue, Properties props)
     {
       queue.verbose = true;
       log ("Action " + action + " not understood");
-    if (action.equalsIgnoreCase(ACTION_SEND))
       log ("Options are:" + " | " + ACTION_SEND_NEW + " | " + ACTION_DELETE_OCID + " | " 
             + ACTION_LIST + " | " + ACTION_CONSUME + " | " + ACTION_INFO);
     }
