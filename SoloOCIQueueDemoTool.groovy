@@ -91,6 +91,7 @@ public class SoloOCIQueueDemoTool
   private static final String ACTION_SEND_NEW = "send-new";
   private static final String ACTION_LIST = "list";
   private static final String ACTION_INFO = "info";
+  private static final String ACTION_HELP = "help";
   private static final String ACTION_CONSUME = "consume";
   private static final String ACTION_DELETE = "delete";
   private static final String ACTION_DELETE_OCID = "delete-ocid";
@@ -889,11 +890,11 @@ static void readQueue (SoloOCIQueueDemoTool queue, Properties props)
     {
       displayInfo(queue, props);
     }
-    else
+    else if (action.equalsIgnoreCase(ACTION_HELP))
     {
       queue.verbose = true;
       log ("Action " + action + " not understood");
-      log ("Options are:" + " | " + ACTION_SEND_NEW + " | " + ACTION_DELETE_OCID + " | " 
+      log ("Options are:" + ACTION_SEND_NEW + " | " + ACTION_DELETE_OCID + " | " 
             + ACTION_LIST + " | " + ACTION_CONSUME + " | " + ACTION_INFO);
     }
 
