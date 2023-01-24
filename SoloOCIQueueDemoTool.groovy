@@ -117,6 +117,20 @@ public class SoloOCIQueueDemoTool
     private String profileGroup = "DEFAULT";
     static final String DTG_FORMAT = "HH:mm:ss";
 
+    private static ArrayList<Queue.LifecycleState> DEFAULTSTATES = 
+    new ArrayList<Queue.LifecycleState>(List.of(Queue.LifecycleState.Active, 
+            Queue.LifecycleState.Creating,
+            Queue.LifecycleState.Deleting ));
+    // states are: Active, Creating, Deleted, Deleting, Failed, UnknownEnumValue
+
+    private static ArrayList<Queue.LifecycleState> ALLSTATES = 
+    new ArrayList<Queue.LifecycleState>(List.of(Queue.LifecycleState.Active, 
+            Queue.LifecycleState.Creating,
+            Queue.LifecycleState.Deleted,
+            Queue.LifecycleState.Deleting,
+            Queue.LifecycleState.Failed,
+            Queue.LifecycleState.UnknownEnumValue ));
+
 
     /*
      * To use a proper logging framework replace the calls to this method or direct the calls within this method to a logging framework
@@ -134,7 +148,7 @@ public class SoloOCIQueueDemoTool
      * admin can see the queue metadata like created etc   - need both clients
      * We have multiline so we can return all the details in a table like format for 1 queue, or a result more suited to displaying a table of multiple queues
      */
-    static String logQueueInfoFor (String queueId, QueueClient client, QueueAdminClient adminClient, boolean multiline, boolean maxInfo)
+    static String logQueueInfoFor (String queueId, QueueClient client, QueueAdminClient adminClient, boolean multiline, boolean maxInfo, ArrayList<Queue.LifecycleState> includedStates)
     {
         GetStatsRequest statsRequest = null;
         GetStatsResponse statsResponse = null;
@@ -172,8 +186,8 @@ public class SoloOCIQueueDemoTool
             }
         }
 
-        // exclude deleted queues
-        if (!queue.getLifecycleState().toString().equalsIgnoreCase("Deleted"))
+        // exclude deleted queues queue.getLifecycleState().toString().equalsIgnoreCase("Deleted")
+        if (includedStates.contains(queue.getLifecycleState()))
         {
             if (multiline)
             {
@@ -232,9 +246,10 @@ public class SoloOCIQueueDemoTool
      * is either the first occurrence found or the last occurrence (of the name found) depending upon the returnFirst
      * As a resault we can use this method to list the compartments queues.
      */
-    static String getQueueOCIDFor (String queueName, String compartmentId, QueueAdminClient adminClient, boolean returnFirst, boolean displayInfo)
+    static ArrayList<String> getQueueOCIDFor (String queueName, String compartmentId, QueueAdminClient adminClient, boolean returnFirst, boolean displayInfo)
     {
         String queueOCID = null;
+        ArrayList<String> queueOCIDs = new ArrayList<String>();
 
         // we'll make a number of attempts to locate the desired queue
         for (int attempt=0; attempt < 10; attempt++)
@@ -256,44 +271,44 @@ public class SoloOCIQueueDemoTool
             Iterator iter = queueList.iterator();
             QueueSummary queue = null;
 
-            log ("Matched " + queueList.size());
+            log ("Number of queues retrieved " + queueList.size());
             while (iter.hasNext())
             {
                 queue = (QueueSummary)iter.next();
                 String additionalInfo = "";
                 if (displayInfo)
                 {
-                    String logQueueStr = logQueueInfoFor( queue.getId(), null, adminClient, false, false);
+                    String logQueueStr = logQueueInfoFor( queue.getId(), null, adminClient, false, false, ALLSTATES);
                     if (logQueueStr.length() > 0)
                     {
                         log (logQueueStr);
                     }
                 }
-                else
-                {
-                    log ("Located queue:" + queue.getDisplayName() + " -- " + queue.getId() );
-                }
 
                 if ((queueName != null) && queue.getDisplayName().equals(queueName))
                 {
-                    if (queueOCID ==null)
+                    queueOCIDs.add(queue.getId());
+                    if (returnFirst)
                     {
-                        queueOCID = queue.getId();
-                        if (returnFirst)
-                        {
-                            break;
-                        }
+                        break;
                     }
+                }
+                else
+                {
+                    queueOCIDs.add( queue.getId());
                 }
             }
 
-            // once we've got a match return the result - no point in retrying
-            if ((queueName == null) || (queueOCID != null))
+            // if we're looking for a queue by a name and not got a match yet (as we may have just posted a create call)
+            // then we delay and make another attempt. Otherwise just return what we have
+            if (queueOCIDs.isEmpty() && queueName != null)
             {
-                return queueOCID;
+                pause("get OCID", 10);
             }
-
-            pause("get OCID", 10);
+            else
+            {
+                break;
+            }
 
             log ("get queue OCID attempt "+ attempt);
 
@@ -301,7 +316,7 @@ public class SoloOCIQueueDemoTool
         }
 
         // failed to locate 
-        return null;
+        return queueOCIDs;
     }
 
     /*
@@ -315,7 +330,11 @@ public class SoloOCIQueueDemoTool
         log ("Deleting " + id);
         if (byName)
         {
-            ocid = getQueueOCIDFor (id, compartmentId, adminClient, true, false);
+            ArrayList<String> ocids = getQueueOCIDFor (id, compartmentId, adminClient, true, false);
+            if (!ocids.isEmpty())
+            {
+                ocid = ocids.get(0);
+            }
         }
 
         if (ocid != null)
@@ -805,15 +824,27 @@ public class SoloOCIQueueDemoTool
         }
     }
 
+
+    static ArrayList<Queue.LifecycleState> getStates (Properties props)
+    {
+        ArrayList<Queue.LifecycleState> states = DEFAULTSTATES;
+        if (props.getProperty("ALLSTATES", "FALSE").equalsIgnoreCase("TRUE"))
+        {
+            states = ALLSTATES;
+        }
+
+        return states;
+    }
     /*
      * Performs the action of displaying the retrieved information. Uses logQueueInfoFor to build the output
      * string for us.
      */
     static void displayInfo(SoloOCIQueueDemoTool queue, Properties props)
     {
+        ArrayList<Queue.LifecycleState> states = getStates(props);
         queue.initialize (props);
         queue.verbose = true;
-        String queueInfo = logQueueInfoFor(props.getProperty(QUEUEOCID), queue.client, queue.adminClient, true, true);
+        String queueInfo = logQueueInfoFor(props.getProperty(QUEUEOCID), queue.client, queue.adminClient, true, true, states);
         if (queueInfo.length() > 0)
         {
             log (queueInfo);
@@ -898,8 +929,23 @@ public class SoloOCIQueueDemoTool
         }    
         else if (action.equalsIgnoreCase(ACTION_LIST))
         {
+            if (queue.adminClient == null)
+            {
+                queue.adminClient = getQueueAdminClient(getConfigFile(props));
+            }
+            ArrayList<String> ocids = getQueueOCIDFor (null,  props.getProperty(QUEUECOMPARTMENTID), 
+                queue.adminClient, false, false);
+            Iterator ocidsIter = ocids.iterator();
             queue.verbose = true;
-            getQueueOCIDFor (null,  props.getProperty(QUEUECOMPARTMENTID), getQueueAdminClient(getConfigFile(props)), false, true);
+            while (ocidsIter.hasNext())
+            {
+                String logQueueStr = logQueueInfoFor( (String)ocidsIter.next(), null, queue.adminClient, false, false, getStates(props));
+                if (logQueueStr.length() > 0)
+                {
+                    log (logQueueStr);
+                }
+            }
+
             queue.verbose = false;
         }
         else if (action.equalsIgnoreCase(ACTION_CONSUME))
