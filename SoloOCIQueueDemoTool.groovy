@@ -134,7 +134,7 @@ public class SoloOCIQueueDemoTool
      * admin can see the queue metadata like created etc   - need both clients
      * We have multiline so we can return all the details in a table like format for 1 queue, or a result more suited to displaying a table of multiple queues
      */
-    static String logQueueInfoFor (String queueId, QueueClient client, QueueAdminClient adminClient, boolean multiline)
+    static String logQueueInfoFor (String queueId, QueueClient client, QueueAdminClient adminClient, boolean multiline, boolean maxInfo)
     {
         GetStatsRequest statsRequest = null;
         GetStatsResponse statsResponse = null;
@@ -172,43 +172,54 @@ public class SoloOCIQueueDemoTool
             }
         }
 
-        if (multiline)
+        // exclude deleted queues
+        if (!queue.getLifecycleState().toString().equalsIgnoreCase("Deleted"))
         {
-            separator = "\n";
-            queueInfo= "-------------" + separator;
-        }
-
-        queueInfo+= "Queue id : " + queueId + separator;
-        if (queue != null)
-        {
-            queueInfo+= "Queue name :" + queue.getDisplayName()+separator;
-        }
-
-        if (queue != null)
-        {
-
-            queueInfo+= "Lifecycle state :" + queue.getLifecycleState().toString() + separator;
-            if (queue.getLifecycleDetails() != null)
+            if (multiline)
             {
-                queueInfo+= "Lifecycle details :" + queue.getLifecycleDetails() + separator;
+                separator = "\n";
+                queueInfo= "-------------" + separator;
             }
-            queueInfo+= "Created :" + queue.getTimeCreated().toString() + separator;
-            queueInfo+= "Updated :" + queue.getTimeUpdated().toString() + separator;      
-            queueInfo+= "Compartment Id :" + queue.getCompartmentId() + separator;
-            queueInfo+= "Endpoint: " + queue.getMessagesEndpoint() + separator;
-            queueInfo+= "retention mins :" + (queue.getRetentionInSeconds() / 60) + separator;
-        }
 
-        if (stats != null)
-        {
-            queueInfo+= "Visible messages : " + stats.getVisibleMessages().toString() + separator;
-            queueInfo+= "InFlight messages : " + stats.getInFlightMessages().toString() + separator;
-            queueInfo+= "Queue size (MB) : " + size + separator;
-        }
+            queueInfo+= "Queue id : " + queueId + separator;
+            if (queue != null)
+            {
+                queueInfo+= "Queue name :" + queue.getDisplayName()+separator;
+            }
 
-        if (multiline)
-        {
-            queueInfo+= "-------------";
+            if (queue != null)
+            {
+                if (maxInfo)
+                {
+                    queueInfo+= "Lifecycle state :" + queue.getLifecycleState().toString() + separator;
+                    if (queue.getLifecycleDetails() != null)
+                    {
+                        queueInfo+= "Lifecycle details :" + queue.getLifecycleDetails() + separator;
+                    }
+
+                    queueInfo+= "Created :" + queue.getTimeCreated().toString() + separator;
+                }
+                queueInfo+= "Updated :" + queue.getTimeUpdated().toString() + separator;      
+                queueInfo+= "Compartment Id :" + queue.getCompartmentId() + separator;
+
+                if (maxInfo)
+                {
+                    queueInfo+= "Endpoint: " + queue.getMessagesEndpoint() + separator;
+                    queueInfo+= "retention mins :" + (queue.getRetentionInSeconds() / 60) + separator;
+                }
+            }
+
+            if (stats != null)
+            {
+                queueInfo+= "Visible messages : " + stats.getVisibleMessages().toString() + separator;
+                queueInfo+= "InFlight messages : " + stats.getInFlightMessages().toString() + separator;
+                queueInfo+= "Queue size (MB) : " + size + separator;
+            }
+
+            if (multiline)
+            {
+                queueInfo+= "-------------";
+            }
         }
 
         return (queueInfo);
@@ -252,8 +263,11 @@ public class SoloOCIQueueDemoTool
                 String additionalInfo = "";
                 if (displayInfo)
                 {
-                    //additionalInfo = " -->" + logQueueInfoFor( queue.getId(), null, adminClient, false);
-                    log (logQueueInfoFor( queue.getId(), null, adminClient, false));
+                    String logQueueStr = logQueueInfoFor( queue.getId(), null, adminClient, false, false);
+                    if (logQueueStr.length() > 0)
+                    {
+                        log (logQueueStr);
+                    }
                 }
                 else
                 {
@@ -799,7 +813,11 @@ public class SoloOCIQueueDemoTool
     {
         queue.initialize (props);
         queue.verbose = true;
-        log (logQueueInfoFor(props.getProperty(QUEUEOCID), queue.client, queue.adminClient, true));
+        String queueInfo = logQueueInfoFor(props.getProperty(QUEUEOCID), queue.client, queue.adminClient, true, true);
+        if (queueInfo.length() > 0)
+        {
+            log (queueInfo);
+        }
         queue.verbose = true;
     }
 
@@ -892,12 +910,22 @@ public class SoloOCIQueueDemoTool
         {
             displayInfo(queue, props);
         }
-        else if (action.equalsIgnoreCase(ACTION_HELP))
+        else 
         {
             queue.verbose = true;
-            log ("Action " + action + " not understood");
-            log ("Options are:" + ACTION_SEND_NEW + " | " + ACTION_DELETE_OCID + " | " 
-                + ACTION_LIST + " | " + ACTION_CONSUME + " | " + ACTION_INFO);
+            if (!action.equalsIgnoreCase(ACTION_HELP))
+            {
+                log ("Action " + action + " not understood");
+            }
+            log ("Options are:" + ACTION_SEND + " | "  
+                + ACTION_SEND_NEW + " | " 
+                + ACTION_DELETE_OCID + " | " 
+                + ACTION_LIST + " | " 
+                + ACTION_CONSUME + " | "
+                + ACTION_DELETE + " | "  
+                + ACTION_INFO + " | " 
+                + ACTION_HELP);
+
         }
 
         queue.clearDown();
