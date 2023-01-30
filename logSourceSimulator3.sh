@@ -1,1 +1,1 @@
-groovy LogSimulator.groovy testConfigurations/tool3.linux.properties testData/small-source.json
+groovy LogSimulator.groovy testConfigurations/tool3.linux.properties TestData/small-source.json
