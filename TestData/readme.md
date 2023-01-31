@@ -1,0 +1,1 @@
+Tne Logging In Action book refers to the test Data file in the /TestData folder rather than /testData which is the path used in the repo. Therefore for continuity we have cloned ./testData here as well
