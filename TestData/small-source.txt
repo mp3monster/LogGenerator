@@ -1,4 +1,0 @@
-+100 hello
-+200 Job requirement
-+300 must understand core programming concepts
-+100 able to code without cut and paste from StackOverflow
