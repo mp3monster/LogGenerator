@@ -96,7 +96,7 @@ public class SoloOCIQueueDemoTool
     private static final String ACTION_DELETE = "delete";
     private static final String ACTION_DELETE_OCID = "delete-ocid";
     private static final String POSTSENDDELAYSECS = "POSTSENDDELAYSECS";
-
+    private static final String ALLSTATES_PROP= "ALLSTATES";
 
     private QueueClient client = null;
     private QueueAdminClient adminClient = null;
@@ -579,6 +579,9 @@ public class SoloOCIQueueDemoTool
         }
     }
 
+
+
+
     /*
      * This method performs any cleardown, releasing messages currently in a batch, but not yet sent
      * The method is required by the LogGenerator interfacing
@@ -594,7 +597,7 @@ public class SoloOCIQueueDemoTool
             PutMessagesResponse response = client.putMessages(request);
             batch.clear();
 
-            if (verbose) {System.out.println ("OCI Queue Outputter:" + response.toString());}      
+            log("OCI Queue Outputter:" + response.toString());
         }
         log ("OCI Queue Outputter - clearing down");
     }
@@ -661,7 +664,7 @@ public class SoloOCIQueueDemoTool
         //String errors = response.getUpdateMessageResult().getClientFailures();
         //if ((errors != null) && (errors.length() > 0))
         //{
-        //  log ("Error with requesting a delay in visibility"+ errors + " for " + receipt);
+        //    log ("Error with requesting a delay in visibility"+ errors + " for " + receipt);
         log ("visibility delayed " + response.toString());
         //}
     }
@@ -702,7 +705,7 @@ public class SoloOCIQueueDemoTool
     /*
      * Wrap up thread sleep logic into 1 declaration with exception handling - makes the
      * rest of the code a little neater and easier to read
-     */
+     */ 
     static void pause (String pauseName, int forSecs)
     {
         try
@@ -713,7 +716,7 @@ public class SoloOCIQueueDemoTool
         catch (Exception err) 
         {
             log(pauseName + " disturbed " + err.getMessage());
-        }
+        }  
 
     }
 
@@ -828,7 +831,7 @@ public class SoloOCIQueueDemoTool
     static ArrayList<Queue.LifecycleState> getStates (Properties props)
     {
         ArrayList<Queue.LifecycleState> states = DEFAULTSTATES;
-        if (props.getProperty("ALLSTATES", "FALSE").equalsIgnoreCase("TRUE"))
+        if (props.getProperty(ALLSTATES_PROP, "FALSE").equalsIgnoreCase("TRUE"))
         {
             states = ALLSTATES;
         }
@@ -887,6 +890,7 @@ public class SoloOCIQueueDemoTool
         setPropertyFromVar (RETENTIONSECONDS, RETENTIONSECONDS, props);
         setPropertyFromVar (POSTSENDDELAYSECS, INTERREADELAYSECS, props);
         setPropertyFromVar (INTERREADELAYSECS, INTERREADELAYSECS, props);
+        setPropertyFromVar (ALLSTATES_PROP, ALLSTATES_PROP, props);
 
 
         verbose =((System.getenv(ISVERBOSE) == null) || (System.getenv(ISVERBOSE).trim().equalsIgnoreCase("true")));
