@@ -10,7 +10,7 @@
 import java.util.logging.Level;
 import LogSimulator;
 
-class tests{
+class tests {
    static final boolean verbose = ((System.getenv("verbose") == null) || 
                                     (System.getenv("verbose").trim().equalsIgnoreCase("true")));
 
@@ -21,6 +21,24 @@ class tests{
       }
    }
 
+   static void testLogToString ()
+   {
+      final String msg = "testing A B C";
+      String dtgFormat = "";
+      String separator = "!";
+      String outTemplate = "(%j-%i) %m";
+      boolean verbose = true;
+      int counter = 2;
+      int iterCount = 3;
+      LogGenerator.testLogEntry.message = msg;
+      
+      String result = LogGenerator.logToString (LogGenerator.testLogEntry,  dtgFormat,  separator,  outTemplate, verbose,  counter,  iterCount);
+      int strIdx = result.indexOf(msg);
+                                 
+      System.out.println ("testLogToString>" + result + " indexed at " + strIdx);
+      assert (strIdx > -1) : "Missing message content";
+      
+   }
 
    static void testJULMappings ()
    {
@@ -89,6 +107,7 @@ class tests{
          log ("Starting tests ...");
 
          testJULMappings();
+         testLogToString();
 
       }
       catch (Exception err)
