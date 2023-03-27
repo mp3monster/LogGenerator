@@ -81,7 +81,7 @@ public class LogGenerator
     final static String PROPFILENAMEDEFAULT = "tool.properties";
 
     private boolean verbose = false; // allows us to pretty print all the API calls if necessary
-    private static boolean debug = false; // these log messages are for debugging only
+    private static boolean debug = true; // these log messages are for debugging only
 
     private Logger juLogger = null;
 
@@ -132,7 +132,9 @@ class LogToConsole implements RecordLogEvent
     }
 }
 
-
+    // static variable necessary so we can use the object in our unit tests - working around visibility 
+    // constraint
+    static public LogEntry testLogEntry = new LogEntry();
    /**
     * This class holds the parsed log entry to be used
     */
@@ -249,7 +251,7 @@ class LogToConsole implements RecordLogEvent
             output = TIME + separator + MESSAGE;
         }
 
-        if (debug) {System.out.println ("logToString>"+iterCount + "<>" + counter + "<>" + output + "<>" + dtgFormat + "<\n log>   " + log +"<----------" );}
+        if (debug) {System.out.println ("logToString iterCount=>"+iterCount + "< counter=>" + counter + "< output=>" + output + "< dtgFormat=>" + dtgFormat + "< log=>" + log +"<-" );}
 
         if (output.indexOf (TIME) > -1)
         {
@@ -303,6 +305,7 @@ class LogToConsole implements RecordLogEvent
             }
             else
             {
+                System.out.println ("No message to sub")
                 output = output.replace(MESSAGE, "");
             }
         }
@@ -315,6 +318,7 @@ class LogToConsole implements RecordLogEvent
             output = output.replace(ITERCOUNTER, String.valueOf (iterCount));
         }
 
+            if (debug) {System.out.println ("logToString - returns:" +output );}
         return output;
     }
 
@@ -359,11 +363,11 @@ class LogToConsole implements RecordLogEvent
         int fmtIdx = 0;
         String element = null;
         boolean valueSet = false;
-        if (debug) 
-        {
-            System.out.println ("createLogEntry token count>" + st.countTokens());
-            System.out.println ("createLogEntry Line>" + line + "<\n"+displayTokens(st)+"<--");
-        }
+        //if (debug) 
+        //{
+        //    System.out.println ("createLogEntry token count>" + st.countTokens());
+        //    System.out.println ("createLogEntry Line>" + line + "<\n"+displayTokens(st)+"<--");
+        //}
 
 
         while (st.hasMoreElements())
@@ -491,6 +495,10 @@ class LogToConsole implements RecordLogEvent
     }
 
 
+    /*
+     * This works by reading a line at a time. If the line doesnt match the regex
+     * it is corporated into the current record with a newline character
+    */
     static ArrayList<LogEntry> multiLineRead (BufferedReader sourceReader, 
                                                 String separator, 
                                                 String[] formatArray, 
@@ -557,6 +565,11 @@ class LogToConsole implements RecordLogEvent
         return lines;
     }
 
+    /*
+     * The process of reading the log file is performed. With the config for the file structure 
+     * parsed into an arraylist so that it directs the logb input processor.
+     * an ArrayList of objects representing each record to be played out 
+     */
     static ArrayList<LogEntry> loadLogs (String source, 
                                         String separator, 
                                         String format, 
@@ -572,7 +585,10 @@ class LogToConsole implements RecordLogEvent
         for (int idx = 0; idx < formatArray.length; idx++)
         {
             formatArray[idx] = formatArray[idx].trim();
+            if (verbose) { System.out.println  ("load logs format>" + idx + "=" + formatArray[idx]); }
         }
+
+
 
 
         if (verbose){System.out.println ("multiline="+multiLineREGEX)}
@@ -919,7 +935,10 @@ class LogToConsole implements RecordLogEvent
                             if (verbose) {System.out.println ("about to fire Java Util Logging ("+toJULLevel(log.logLevel, props)+") " + log.message);}
                             try 
                             {
-                                juLogger.log (toJULLevel(log.logLevel, props), log.location,"", output);
+                                LogRecord record = new LogRecord (toJULLevel(log.logLevel, props), output);
+                                record.setSourceClassName (log.location);
+                                record.setLoggerName("LogSimulator");
+                                juLogger.log (record);
                             }
                             catch (Exception err)
                             {
