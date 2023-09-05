@@ -55,6 +55,7 @@ The properties file drives all the different possible behaviors. The following t
 | FIRSTOFMULTILINEREGEX | If you want to read a log file with multiple lines per event, then this attribute can be set with a regular expression that if resolves positively will treat the line read as the first log line. If the subsequent lines return false, then they are appended to previous log event until a new line returns positive. If not set then log entries are assumed not to be multiline | \\\d+                                                        | N        |
 | ALLOWNL               | If you want to introduce newlines in the test logs, incorporating \n will be read in. As the file read doesn't want to read the \n as a new line by default it gets escaped. With this value set the \n has the escaping removed and when written to an output the \n will be processed properly. | true                                                         | N        |
 | CUSTOMOUTPUT          | When provided will be used to load a custom outputter class. It only requires the class name on the assumption it is already in the Groovy path. The Custom class ineeds to implement the RecordLogEvent interface. Example implementations are provided and documented. | CustomOCIOutputter                                           | N        |
+|DEFAULTTIMEOFFSET      | Defines the number of default offset between sending log events. This will be overridden if the time values are retrieved from the source data | ----                                                         | N        |
 
 
 

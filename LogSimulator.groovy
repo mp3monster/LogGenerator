@@ -40,6 +40,7 @@ public class LogGenerator
     final static String TARGETURL = "TARGETURL";
     final static String SOURCEDTG = "SOURCEDTG";
     final static String OUTTYPE = "OUTPUTTYPE";
+    final static String DEFAULTDELAYOFFSET= "DEFAULTTIMEOFFSET";
     final static String CUSTOMOUTTYPE = "CUSTOMOUTPUT";
     final static String DEFAULTLOGLEVEL = "DEFAULT-LOGLEVEL";
     final static String ACCELERATOR = "ACCELERATEBY";
@@ -79,6 +80,10 @@ public class LogGenerator
     final static String ITERCOUNTER = "%j";
 
     final static String PROPFILENAMEDEFAULT = "tool.properties";
+
+    static int defaultLogDelay = 0;
+        // cheat shouldn't be static
+        //TODO
 
     private boolean verbose = false; // allows us to pretty print all the API calls if necessary
     private static boolean debug = true; // these log messages are for debugging only
@@ -352,6 +357,7 @@ class LogToConsole implements RecordLogEvent
     {
         LogEntry aLogEntry = new LogEntry();
 
+
         if ((line == null) || (line.length() == 0))
         {
             if (verbose) {System.out.println ("createLogEntry - empty line");} 
@@ -369,6 +375,7 @@ class LogToConsole implements RecordLogEvent
         //    System.out.println ("createLogEntry Line>" + line + "<\n"+displayTokens(st)+"<--");
         //}
 
+        aLogEntry.offset = defaultLogDelay;
 
         while (st.hasMoreElements())
         {
@@ -630,7 +637,7 @@ class LogToConsole implements RecordLogEvent
     {
         System.out.println ("Starting ...");
 
-        HashMap<int, RecordLogEvent> eventRecorders = new HashMap<int, RecordLogEvent>();
+        HashMap<Integer, RecordLogEvent> eventRecorders = new HashMap<Integer, RecordLogEvent>();
         //eventRecorders.put(CONSOLEOUTPUT, new LogToConsole());
 
         String propFilename = PROPFILENAMEDEFAULT;
@@ -756,6 +763,19 @@ class LogToConsole implements RecordLogEvent
             {
                 System.out.println ("Couldn't process accelerator value >" + props.get(ACCELERATOR)+"<");
             }
+        }
+
+        if ((props.get(DEFAULTDELAYOFFSET) != null) && (props.get(DEFAULTDELAYOFFSET).length() > 0))
+        {
+            try
+            {            
+                defaultLogDelay = Integer.parseInt(props.get(DEFAULTDELAYOFFSET));
+                if (verbose) {System.out.println ("Set default delay to " + defaultLogDelay);}
+            }
+            catch (NumberFormatException err)
+            {
+                System.out.println ("Couldn't process default delay value >" + props.get(DEFAULTDELAYOFFSET)+"<");
+            }            
         }
 
         int outputType = getOutputType(props, verbose);
