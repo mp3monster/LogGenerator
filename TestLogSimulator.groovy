@@ -33,10 +33,14 @@ class tests {
       LogGenerator.testLogEntry.message = msg;
       
       String result = LogGenerator.logToString (LogGenerator.testLogEntry,  dtgFormat,  separator,  outTemplate, verbose,  counter,  iterCount);
-      int strIdx = result.indexOf(msg);
+      int strMsgIdx = result.indexOf(msg);
+      int strIterCountIdx = result.indexOf(new String(iterCount));
+      int strCounterIdx = result.indexOf(new String(counter));
                                  
       System.out.println ("testLogToString>" + result + " indexed at " + strIdx);
       assert (strIdx > -1) : "Missing message content";
+      assert (strIterCountIdx > -1) : "Missing iteration counter content";
+      assert (strCounterIdx > -1) : "Missing message counter content";
       
    }
 
